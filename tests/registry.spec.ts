@@ -17,7 +17,13 @@ test("binds a template step and passes its quoted args", () => {
 
   const match = findStep(s);
   expect(match).not.toBeNull();
-  match!.fn({ world: {}, args: match!.args, table: null, text: s.text });
+  match!.fn({
+    world: {},
+    args: match!.args,
+    table: null,
+    text: s.text,
+    request: {} as never,
+  });
   expect(seen).toEqual([["42"]]);
 });
 

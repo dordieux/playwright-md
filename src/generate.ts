@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import { test } from "./test.js";
 import { findStep } from "./registry.js";
 import { parseMarkdown } from "./parser.js";
@@ -46,12 +46,12 @@ export function defineMarkdownSpecs(
       for (const scenario of spec.scenarios) {
         const options = scenario.tag ? { tag: `@${scenario.tag}` } : {};
         if (opts.browser) {
-          test(scenario.title, options, async ({ world, page }) => {
-            await runScenario(scenario, file, world, page);
+          test(scenario.title, options, async ({ world, request, page }) => {
+            await runScenario(scenario, file, world, request, page);
           });
         } else {
-          test(scenario.title, options, async ({ world }) => {
-            await runScenario(scenario, file, world, undefined);
+          test(scenario.title, options, async ({ world, request }) => {
+            await runScenario(scenario, file, world, request, undefined);
           });
         }
       }
@@ -63,6 +63,7 @@ async function runScenario(
   scenario: Scenario,
   file: string,
   world: Record<string, unknown>,
+  request: APIRequestContext,
   page: Page | undefined,
 ): Promise<void> {
   for (const s of scenario.steps) {
@@ -78,6 +79,7 @@ async function runScenario(
         args: match.args,
         table: s.table,
         text: s.text,
+        request,
         page,
       });
     });

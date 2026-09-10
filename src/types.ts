@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 /**
  * A parsed data table attached to a step, e.g.
@@ -63,6 +63,11 @@ export interface StepContext {
   table: Table | null;
   /** The raw step text, for diagnostics. */
   text: string;
+  /**
+   * Playwright's HTTP client, for API steps. Always available (it launches no
+   * browser). Use `use.baseURL` in the Playwright config to call relative paths.
+   */
+  request: APIRequestContext;
   /**
    * The Playwright page, present only for specs defined with `{ browser: true }`.
    * Browser-driving steps use it; pure-logic specs leave it undefined so they

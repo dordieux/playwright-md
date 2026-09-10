@@ -14,3 +14,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `defineMarkdownSpecs(target, { browser: true })` provides Playwright's `page`
   to steps (as `ctx.page`) for browser-driving specs, while pure-logic specs
   stay browser-free.
+- `ctx.request` (Playwright's HTTP client) is available to every step for API
+  testing, with a self-contained mock-API example (`examples/api` +
+  `examples/mock-server`).
+
+### Fixed
+
+- CI: pin the package manager (`packageManager` field) so `pnpm/action-setup`
+  resolves a version, and install the Chromium browser before running tests.

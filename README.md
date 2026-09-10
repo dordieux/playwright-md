@@ -120,6 +120,34 @@ step("add a todo {}", async ({ page, args }) => {
 Browser and non-browser specs live happily in the same suite and run through the
 same command — only the `browser`-flagged ones launch a browser.
 
+## API steps
+
+`ctx.request` is Playwright's HTTP client, always available (no browser). Set a
+`baseURL` in your Playwright config to call relative paths, and — for a
+self-contained suite — point `webServer` at a local mock so tests depend on
+nothing external:
+
+```ts
+// playwright.config.ts
+use: { baseURL: "http://localhost:3210" },
+webServer: {
+  command: "node examples/mock-server/server.mjs",
+  url: "http://localhost:3210/todos",
+},
+```
+
+```ts
+step("create a todo {}", async ({ request, world, args }) => {
+  const res = await request.post("/todos", { data: { title: args[0] } });
+  world.lastStatus = res.status();
+});
+step("the response status is {}", ({ world, args }) => {
+  expect(world.lastStatus).toBe(Number(args[0]));
+});
+```
+
+See `examples/api` for the full mock-API example.
+
 ## Status
 
 Early proof of concept. The core (parse → generate → bind → run) works; the API
