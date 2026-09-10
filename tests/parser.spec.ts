@@ -53,6 +53,27 @@ test("attaches an indented table to its step", () => {
   expect(afterTable.table).toBeNull();
 });
 
+test("collects steps before the first scenario as background", () => {
+  const spec = parseMarkdown(`# S
+
+* the API is empty
+* logged in as "admin"
+
+## first scenario
+* do a thing
+
+## second scenario
+* do another thing
+`);
+  expect(spec.background.map((s) => s.template)).toEqual([
+    "the API is empty",
+    "logged in as {}",
+  ]);
+  expect(spec.background[1].args).toEqual(["admin"]);
+  expect(spec.scenarios).toHaveLength(2);
+  expect(spec.scenarios[0].steps).toHaveLength(1);
+});
+
 test("a scenario without a tag has tag null", () => {
   const spec = parseMarkdown(`# S
 ## no tag here

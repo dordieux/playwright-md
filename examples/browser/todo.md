@@ -4,9 +4,12 @@ Drives a real page in a real browser through playwright-md steps. The same Markd
 spec style as the pure-logic examples — only the step definitions differ, using
 Playwright's `page`.
 
-## adds todos and tracks the active count -- e2e
+The background step opens a fresh page before every scenario.
 
 * open the app
+
+## adds todos and tracks the active count -- e2e
+
 * add a todo "Buy milk"
 * add a todo "Write tests"
 * the total count is "2"
@@ -14,7 +17,6 @@ Playwright's `page`.
 
 ## completing a todo decreases the active count
 
-* open the app
 * add a todo "Buy milk"
 * add a todo "Write tests"
 * complete the todo "Buy milk"
@@ -23,6 +25,5 @@ Playwright's `page`.
 
 ## empty input does not add a todo
 
-* open the app
 * add a todo ""
 * the total count is "0"

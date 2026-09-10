@@ -5,7 +5,7 @@ import { test } from "./test.js";
 import { findStep } from "./registry.js";
 import { parseMarkdown } from "./parser.js";
 import { collectSpecFiles } from "./files.js";
-import type { Scenario } from "./types.js";
+import type { Step } from "./types.js";
 
 /** Options for {@link defineMarkdownSpecs}. */
 export interface DefineOptions {
@@ -45,13 +45,15 @@ export function defineMarkdownSpecs(
     test.describe(suite, () => {
       for (const scenario of spec.scenarios) {
         const options = scenario.tag ? { tag: `@${scenario.tag}` } : {};
+        // Background steps run before each scenario's own steps.
+        const steps = [...spec.background, ...scenario.steps];
         if (opts.browser) {
           test(scenario.title, options, async ({ world, request, page }) => {
-            await runScenario(scenario, file, world, request, page);
+            await runSteps(steps, file, world, request, page);
           });
         } else {
           test(scenario.title, options, async ({ world, request }) => {
-            await runScenario(scenario, file, world, request, undefined);
+            await runSteps(steps, file, world, request, undefined);
           });
         }
       }
@@ -59,14 +61,14 @@ export function defineMarkdownSpecs(
   }
 }
 
-async function runScenario(
-  scenario: Scenario,
+async function runSteps(
+  steps: Step[],
   file: string,
   world: Record<string, unknown>,
   request: APIRequestContext,
   page: Page | undefined,
 ): Promise<void> {
-  for (const s of scenario.steps) {
+  for (const s of steps) {
     const match = findStep(s);
     if (!match) {
       throw new Error(

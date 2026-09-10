@@ -17,6 +17,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `ctx.request` (Playwright's HTTP client) is available to every step for API
   testing, with a self-contained mock-API example (`examples/api` +
   `examples/mock-server`).
+- Background steps: steps written before the first `##` scenario run before
+  every scenario, so shared setup (open the app, reset the API) lives in one
+  place.
 
 ### Fixed
 

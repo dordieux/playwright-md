@@ -14,14 +14,15 @@ const QUOTED = /"([^"]*)"/g;
  * - `## Scenario -- tag` — a scenario; the optional ` -- tag` suffix becomes a
  *   Playwright tag (`@tag`).
  * - `* step text with "args"` (or `- ...`) — a step. Double-quoted substrings
- *   are the step's positional arguments.
+ *   are the step's positional arguments. Steps before the first `##` scenario
+ *   become background steps, run before every scenario.
  * - A Markdown table indented under a step becomes that step's data table.
  *
  * Everything else (blank lines, prose, headings deeper than `##`) is ignored,
  * so a spec doubles as human-readable documentation.
  */
 export function parseMarkdown(content: string, file = "<memory>"): Spec {
-  const spec: Spec = { title: "", scenarios: [], file };
+  const spec: Spec = { title: "", background: [], scenarios: [], file };
   const lines = content.split(/\r?\n/);
 
   let scenario: Scenario | null = null;
@@ -55,10 +56,12 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
     }
 
     const s = line.match(STEP);
-    if (s && scenario) {
+    if (s) {
       flushTable();
       step = parseStep(s[1].trim());
-      scenario.steps.push(step);
+      // Steps before the first scenario are background; the rest belong to the
+      // current scenario.
+      (scenario ? scenario.steps : spec.background).push(step);
       continue;
     }
 

@@ -94,7 +94,27 @@ step(/^wait (\d+) seconds$/, async ({ args }) => {
 });
 ```
 
-Every step receives one `ctx` object: `{ world, args, table, text, page }`.
+Every step receives one `ctx` object: `{ world, args, table, text, request, page }`.
+
+## Background steps
+
+Steps written after the `#` title but before the first `##` scenario are
+**background** steps — they run before every scenario, so shared setup lives in
+one place:
+
+```markdown
+# Todo API
+
+* the API is empty        <!-- background: runs before each scenario below -->
+
+## creates a todo
+* create a todo "Buy milk"
+* the todo list has "1" items
+
+## rejects an empty title
+* create a todo ""
+* the response status is "400"
+```
 
 ## Browser steps
 

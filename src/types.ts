@@ -41,6 +41,12 @@ export interface Scenario {
 /** A parsed spec file: one `# heading` plus its scenarios. */
 export interface Spec {
   title: string;
+  /**
+   * Background steps: steps written after the `#` title but before the first
+   * `##` scenario. They run before every scenario's own steps, so shared setup
+   * (open the app, reset the API) lives in one place.
+   */
+  background: Step[];
   scenarios: Scenario[];
   /** Absolute path of the source file, for error messages. */
   file: string;
