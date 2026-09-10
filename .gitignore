@@ -1,0 +1,23 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
+# Logs / OS
+*.log
+.DS_Store
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Env / secrets — never commit
+.env
+.env.*
+*.pem

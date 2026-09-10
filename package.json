@@ -1,0 +1,50 @@
+{
+  "name": "markspec",
+  "version": "0.1.0",
+  "description": "Write Playwright tests as readable Markdown specs. A lightweight, Gauge-flavored spec layer on top of the Playwright test runner.",
+  "keywords": [
+    "playwright",
+    "testing",
+    "test-runner",
+    "bdd",
+    "markdown",
+    "spec",
+    "gauge",
+    "e2e",
+    "acceptance-testing"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "playwright test",
+    "prepublishOnly": "pnpm run clean && pnpm run build"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^20",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
