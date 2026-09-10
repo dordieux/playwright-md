@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 /**
  * A parsed data table attached to a step, e.g.
  *
@@ -61,6 +63,12 @@ export interface StepContext {
   table: Table | null;
   /** The raw step text, for diagnostics. */
   text: string;
+  /**
+   * The Playwright page, present only for specs defined with `{ browser: true }`.
+   * Browser-driving steps use it; pure-logic specs leave it undefined so they
+   * never launch (or need) a browser.
+   */
+  page?: Page;
 }
 
 /** A step definition body. */

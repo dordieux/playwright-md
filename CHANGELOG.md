@@ -11,3 +11,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Initial proof of concept: parse Markdown specs, generate Playwright tests,
   bind steps (template `{}` or RegExp), per-scenario `world` fixture, indented
   data tables, and the ` -- tag` scenario-tag convention.
+- `defineMarkdownSpecs(target, { browser: true })` provides Playwright's `page`
+  to steps (as `ctx.page`) for browser-driving specs, while pure-logic specs
+  stay browser-free.

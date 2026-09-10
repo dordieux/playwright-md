@@ -1,5 +1,5 @@
 export { step } from "./registry.js";
-export { defineMarkdownSpecs } from "./generate.js";
+export { defineMarkdownSpecs, type DefineOptions } from "./generate.js";
 export { parseMarkdown } from "./parser.js";
 export { test, expect } from "./test.js";
 export type {

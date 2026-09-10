@@ -1,9 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { Page } from "@playwright/test";
 import { test } from "./test.js";
 import { findStep } from "./registry.js";
 import { parseMarkdown } from "./parser.js";
 import { collectSpecFiles } from "./files.js";
+import type { Scenario } from "./types.js";
+
+/** Options for {@link defineMarkdownSpecs}. */
+export interface DefineOptions {
+  /**
+   * Provide the Playwright `page` to steps (as `ctx.page`) and launch a browser
+   * for each scenario. Leave false (the default) for pure-logic specs so they
+   * never need a browser. Group browser specs in their own directory.
+   */
+  browser?: boolean;
+}
 
 /**
  * Discover Markdown specs and register them with Playwright as real tests.
@@ -20,8 +32,12 @@ import { collectSpecFiles } from "./files.js";
  * ```
  *
  * @param target A `.md` file, a directory (searched recursively), or a list of paths.
+ * @param opts   See {@link DefineOptions} (e.g. `{ browser: true }`).
  */
-export function defineMarkdownSpecs(target: string | string[]): void {
+export function defineMarkdownSpecs(
+  target: string | string[],
+  opts: DefineOptions = {},
+): void {
   for (const file of collectSpecFiles(target)) {
     const spec = parseMarkdown(fs.readFileSync(file, "utf8"), file);
     const suite = spec.title || path.basename(file, ".md");
@@ -29,25 +45,41 @@ export function defineMarkdownSpecs(target: string | string[]): void {
     test.describe(suite, () => {
       for (const scenario of spec.scenarios) {
         const options = scenario.tag ? { tag: `@${scenario.tag}` } : {};
-        test(scenario.title, options, async ({ world }) => {
-          for (const s of scenario.steps) {
-            const match = findStep(s);
-            if (!match) {
-              throw new Error(
-                `No step definition matches:\n  "${s.text}"\n  (${file})`,
-              );
-            }
-            await test.step(s.text, async () => {
-              await match.fn({
-                world,
-                args: match.args,
-                table: s.table,
-                text: s.text,
-              });
-            });
-          }
-        });
+        if (opts.browser) {
+          test(scenario.title, options, async ({ world, page }) => {
+            await runScenario(scenario, file, world, page);
+          });
+        } else {
+          test(scenario.title, options, async ({ world }) => {
+            await runScenario(scenario, file, world, undefined);
+          });
+        }
       }
+    });
+  }
+}
+
+async function runScenario(
+  scenario: Scenario,
+  file: string,
+  world: Record<string, unknown>,
+  page: Page | undefined,
+): Promise<void> {
+  for (const s of scenario.steps) {
+    const match = findStep(s);
+    if (!match) {
+      throw new Error(
+        `No step definition matches:\n  "${s.text}"\n  (${file})`,
+      );
+    }
+    await test.step(s.text, async () => {
+      await match.fn({
+        world,
+        args: match.args,
+        table: s.table,
+        text: s.text,
+        page,
+      });
     });
   }
 }

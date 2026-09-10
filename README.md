@@ -94,7 +94,31 @@ step(/^wait (\d+) seconds$/, async ({ args }) => {
 });
 ```
 
-Every step receives one `ctx` object: `{ world, args, table, text }`.
+Every step receives one `ctx` object: `{ world, args, table, text, page }`.
+
+## Browser steps
+
+Pure-logic specs never touch a browser. For specs that drive a real page, pass
+`{ browser: true }` and Playwright's `page` arrives as `ctx.page`:
+
+```ts
+import { defineMarkdownSpecs } from "markspec";
+import "./steps/todo.steps";
+
+defineMarkdownSpecs(new URL("./browser", import.meta.url).pathname, {
+  browser: true,
+});
+```
+
+```ts
+step("add a todo {}", async ({ page, args }) => {
+  await page!.fill("#new-todo", args[0]);
+  await page!.click("#new-form button");
+});
+```
+
+Browser and non-browser specs live happily in the same suite and run through the
+same command — only the `browser`-flagged ones launch a browser.
 
 ## Status
 

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Todo</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 2rem auto; }
+      li.done .title { text-decoration: line-through; color: #888; }
+      form { display: flex; gap: 0.5rem; }
+      input[type="text"] { flex: 1; padding: 0.4rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Todos</h1>
+    <form id="new-form">
+      <input id="new-todo" type="text" placeholder="What needs doing?" autocomplete="off" />
+      <button type="submit">Add</button>
+    </form>
+    <ul id="list"></ul>
+    <p>Total: <span id="total">0</span> · Active: <span id="active">0</span></p>
+
+    <script>
+      const todos = [];
+      const list = document.getElementById("list");
+
+      function render() {
+        list.textContent = "";
+        for (const todo of todos) {
+          const li = document.createElement("li");
+          li.dataset.title = todo.title;
+          li.className = todo.done ? "done" : "";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = todo.done;
+          checkbox.addEventListener("change", () => {
+            todo.done = checkbox.checked;
+            render();
+          });
+
+          const title = document.createElement("span");
+          title.className = "title";
+          title.textContent = todo.title;
+
+          li.append(checkbox, title);
+          list.append(li);
+        }
+        document.getElementById("total").textContent = String(todos.length);
+        document.getElementById("active").textContent = String(
+          todos.filter((t) => !t.done).length,
+        );
+      }
+
+      document.getElementById("new-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const input = document.getElementById("new-todo");
+        const value = input.value.trim();
+        if (value) {
+          todos.push({ title: value, done: false });
+          input.value = "";
+          render();
+        }
+      });
+
+      render();
+    </script>
+  </body>
+</html>
