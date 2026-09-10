@@ -1,4 +1,4 @@
-import { defineMarkdownSpecs } from "markspec";
+import { defineMarkdownSpecs } from "playwright-md";
 import "./steps/calculator.steps";
 
 // Point at the Markdown specs. Playwright collects this file, which turns every

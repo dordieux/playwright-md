@@ -1,5 +1,5 @@
 {
-  "name": "markspec",
+  "name": "playwright-md",
   "version": "0.1.0",
   "description": "Write Playwright tests as readable Markdown specs. A lightweight, Gauge-flavored spec layer on top of the Playwright test runner.",
   "keywords": [

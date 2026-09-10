@@ -11,7 +11,7 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "markspec": ["./src/index.ts"]
+      "playwright-md": ["./src/index.ts"]
     }
   },
   "include": ["src", "examples", "tests", "playwright.config.ts"]

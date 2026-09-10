@@ -1,4 +1,4 @@
-import { defineMarkdownSpecs } from "markspec";
+import { defineMarkdownSpecs } from "playwright-md";
 import "./steps/todos-api.steps";
 
 // API steps use ctx.request (Playwright's HTTP client) against the mock server

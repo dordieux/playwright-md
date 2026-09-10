@@ -1,6 +1,6 @@
 # Calculator
 
-A tiny domain used to demonstrate markspec end to end: a running total you can
+A tiny domain used to demonstrate playwright-md end to end: a running total you can
 seed, add to, and assert on. No infrastructure — just enough to show that
 Markdown scenarios become real Playwright tests.
 

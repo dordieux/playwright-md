@@ -25,7 +25,7 @@ export interface DefineOptions {
  * run inside a `test.step()` so it shows up individually in reports and traces:
  *
  * ```ts
- * import { defineMarkdownSpecs } from "markspec";
+ * import { defineMarkdownSpecs } from "playwright-md";
  * import "./steps/calculator.steps";
  *
  * defineMarkdownSpecs(new URL("./specs", import.meta.url).pathname);

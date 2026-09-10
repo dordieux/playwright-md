@@ -1,8 +1,8 @@
-# markspec
+# playwright-md
 
 Write [Playwright](https://playwright.dev) tests as readable **Markdown specs**.
 
-markspec is a thin, Gauge-flavored spec layer on top of the Playwright test
+playwright-md is a thin, Gauge-flavored spec layer on top of the Playwright test
 runner. You keep everything that makes Playwright great — fixtures, parallelism,
 tracing, the HTML reporter, the VS Code extension — and get to describe behavior
 in plain Markdown that non-engineers can read and review.
@@ -19,7 +19,7 @@ in plain Markdown that non-engineers can read and review.
 
 ```ts
 // steps/calculator.steps.ts
-import { step, expect } from "markspec";
+import { step, expect } from "playwright-md";
 
 step("the value is {}", ({ world, args }) => { world.value = Number(args[0]); });
 step("add {}",          ({ world, args }) => { world.value = (world.value as number) + Number(args[0]); });
@@ -28,7 +28,7 @@ step("the result is {}",({ world, args }) => { expect(world.value).toBe(Number(a
 
 ```ts
 // calculator.spec.ts — Playwright collects this file
-import { defineMarkdownSpecs } from "markspec";
+import { defineMarkdownSpecs } from "playwright-md";
 import "./steps/calculator.steps";
 
 defineMarkdownSpecs(new URL("./specs", import.meta.url).pathname);
@@ -45,7 +45,7 @@ That's it — every `##` scenario is now a real Playwright test.
 [Gauge](https://gauge.org) has a lovely idea: tests as Markdown. But it ships a
 whole runtime — a separate process, a language-runner protocol, plugins, project
 scaffolding — that you carry everywhere. Playwright already has a fast, modern
-runner with first-class fixtures, tracing, and tooling. markspec keeps Gauge's
+runner with first-class fixtures, tracing, and tooling. playwright-md keeps Gauge's
 Markdown expressiveness and drops the rest by **compiling specs into Playwright
 tests** instead of running its own engine.
 
@@ -80,7 +80,7 @@ doubles as documentation.
 ## Step definitions
 
 ```ts
-import { step } from "markspec";
+import { step } from "playwright-md";
 
 // Template form: write the sentence with {} at each argument slot.
 step("transfer {} from {} to {}", ({ args }) => {
@@ -102,7 +102,7 @@ Pure-logic specs never touch a browser. For specs that drive a real page, pass
 `{ browser: true }` and Playwright's `page` arrives as `ctx.page`:
 
 ```ts
-import { defineMarkdownSpecs } from "markspec";
+import { defineMarkdownSpecs } from "playwright-md";
 import "./steps/todo.steps";
 
 defineMarkdownSpecs(new URL("./browser", import.meta.url).pathname, {

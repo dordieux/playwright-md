@@ -1,4 +1,4 @@
-import { step, expect } from "markspec";
+import { step, expect } from "playwright-md";
 
 const APP_URL = new URL("../app/index.html", import.meta.url).href;
 

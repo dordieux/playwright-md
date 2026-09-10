@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in markspec! It's an early project, so issues,
+Thanks for your interest in playwright-md! It's an early project, so issues,
 discussion, and PRs are all welcome.
 
 ## Development

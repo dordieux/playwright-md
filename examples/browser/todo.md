@@ -1,6 +1,6 @@
 # Todo app
 
-Drives a real page in a real browser through markspec steps. The same Markdown
+Drives a real page in a real browser through playwright-md steps. The same Markdown
 spec style as the pure-logic examples — only the step definitions differ, using
 Playwright's `page`.
 

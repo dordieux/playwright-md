@@ -1,4 +1,4 @@
-import { defineMarkdownSpecs } from "markspec";
+import { defineMarkdownSpecs } from "playwright-md";
 import "./steps/todo.steps";
 
 // `browser: true` provides Playwright's `page` to steps (as ctx.page) and runs

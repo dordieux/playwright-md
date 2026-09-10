@@ -1,4 +1,4 @@
-import { step, expect } from "markspec";
+import { step, expect } from "playwright-md";
 
 step("the value is {}", ({ world, args }) => {
   world.value = Number(args[0]);

@@ -1,6 +1,6 @@
 # Todo API
 
-Exercises a JSON HTTP API through markspec steps, using Playwright's `request`
+Exercises a JSON HTTP API through playwright-md steps, using Playwright's `request`
 client. The API is a local, in-memory mock (examples/mock-server), so the tests
 depend on nothing external. Each scenario resets the API first, so its own steps
 alone define the state it asserts on.

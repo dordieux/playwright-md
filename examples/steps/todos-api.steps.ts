@@ -1,4 +1,4 @@
-import { step, expect } from "markspec";
+import { step, expect } from "playwright-md";
 
 interface Todo {
   id: number;
