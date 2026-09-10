@@ -14,7 +14,9 @@ export default defineConfig({
   testDir: ".",
   testMatch: ["examples/**/*.spec.ts", "tests/**/*.spec.ts"],
   fullyParallel: true,
-  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  reporter: process.env.CI
+    ? [["./src/reporter.ts"], ["html", { open: "never" }]]
+    : [["./src/reporter.ts"]],
   use: {
     // API example steps call relative paths (e.g. request.post("/todos")).
     baseURL: `http://localhost:${MOCK_API_PORT}`,

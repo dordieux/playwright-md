@@ -168,6 +168,32 @@ step("the response status is {}", ({ world, args }) => {
 
 See `examples/api` for the full mock-API example.
 
+## Reports
+
+playwright-md ships a reporter that renders a run the way the specs read —
+grouped by spec, one line per scenario, and, on failure, the exact Markdown step
+that failed plus a link back to the `.md` file and line:
+
+```
+Todo API  examples/api/todos.md
+  ✓ creates and lists todos (52ms)
+  ✗ completes a todo (43ms)
+      at step: the response status is "200"
+      examples/api/todos.md:23
+      Error: expect(received).toBe(expected)
+
+✗ 2 passed, 1 failed  (2.4s)
+```
+
+Enable it in your Playwright config:
+
+```ts
+reporter: [["playwright-md/reporter"]],
+```
+
+Every generated scenario also carries its `.md` location as a `spec` annotation,
+so the built-in `html` reporter and traces point back at the Markdown too.
+
 ## Status
 
 Early proof of concept. The core (parse → generate → bind → run) works; the API

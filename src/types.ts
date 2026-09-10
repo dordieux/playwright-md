@@ -17,6 +17,8 @@ export interface Table {
 
 /** A single step line within a scenario. */
 export interface Step {
+  /** 1-based line number of this step in the source file. */
+  line: number;
   /** The raw step text as written, e.g. `the value is "2"`. */
   text: string;
   /**
@@ -32,6 +34,8 @@ export interface Step {
 
 /** A scenario: one runnable test, made of an ordered list of steps. */
 export interface Scenario {
+  /** 1-based line number of the `##` heading in the source file. */
+  line: number;
   title: string;
   /** Optional tag from the `## title -- tag` heading convention. */
   tag: string | null;

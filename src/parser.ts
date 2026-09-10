@@ -36,7 +36,9 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
     tableLines = [];
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNo = i + 1;
     const trimmed = line.trim();
 
     const h1 = line.match(H1);
@@ -49,7 +51,7 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
     const h2 = line.match(H2);
     if (h2) {
       flushTable();
-      scenario = parseScenarioHeading(h2[1].trim());
+      scenario = parseScenarioHeading(h2[1].trim(), lineNo);
       spec.scenarios.push(scenario);
       step = null;
       continue;
@@ -58,7 +60,7 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
     const s = line.match(STEP);
     if (s) {
       flushTable();
-      step = parseStep(s[1].trim());
+      step = parseStep(s[1].trim(), lineNo);
       // Steps before the first scenario are background; the rest belong to the
       // current scenario.
       (scenario ? scenario.steps : spec.background).push(step);
@@ -78,20 +80,20 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
   return spec;
 }
 
-function parseScenarioHeading(heading: string): Scenario {
+function parseScenarioHeading(heading: string, line: number): Scenario {
   const sep = heading.indexOf(" -- ");
   if (sep === -1) {
-    return { title: heading, tag: null, steps: [] };
+    return { line, title: heading, tag: null, steps: [] };
   }
   const title = heading.slice(0, sep).trim();
   const tag = heading.slice(sep + 4).trim() || null;
-  return { title, tag, steps: [] };
+  return { line, title, tag, steps: [] };
 }
 
-function parseStep(text: string): Step {
+function parseStep(text: string, line: number): Step {
   const args = [...text.matchAll(QUOTED)].map((m) => m[1]);
   const template = text.replace(QUOTED, "{}").replace(/\s+/g, " ").trim();
-  return { text, template, args, table: null };
+  return { line, text, template, args, table: null };
 }
 
 function parseTable(rows: string[]): Table {

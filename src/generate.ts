@@ -42,18 +42,29 @@ export function defineMarkdownSpecs(
     const spec = parseMarkdown(fs.readFileSync(file, "utf8"), file);
     const suite = spec.title || path.basename(file, ".md");
 
+    const relFile = path.relative(process.cwd(), file);
+
     test.describe(suite, () => {
       for (const scenario of spec.scenarios) {
-        const options = scenario.tag ? { tag: `@${scenario.tag}` } : {};
+        // Record where this scenario lives in the Markdown, so reports and
+        // traces can point back at the .md instead of the generator.
+        const details: {
+          tag?: string;
+          annotation: { type: string; description: string };
+        } = {
+          annotation: { type: "spec", description: `${relFile}:${scenario.line}` },
+        };
+        if (scenario.tag) details.tag = `@${scenario.tag}`;
+
         // Background steps run before each scenario's own steps.
         const steps = [...spec.background, ...scenario.steps];
         if (opts.browser) {
-          test(scenario.title, options, async ({ world, request, page }) => {
-            await runSteps(steps, file, world, request, page);
+          test(scenario.title, details, async ({ world, request, page }) => {
+            await runSteps(steps, relFile, world, request, page);
           });
         } else {
-          test(scenario.title, options, async ({ world, request }) => {
-            await runSteps(steps, file, world, request, undefined);
+          test(scenario.title, details, async ({ world, request }) => {
+            await runSteps(steps, relFile, world, request, undefined);
           });
         }
       }
@@ -63,7 +74,7 @@ export function defineMarkdownSpecs(
 
 async function runSteps(
   steps: Step[],
-  file: string,
+  relFile: string,
   world: Record<string, unknown>,
   request: APIRequestContext,
   page: Page | undefined,
@@ -72,7 +83,7 @@ async function runSteps(
     const match = findStep(s);
     if (!match) {
       throw new Error(
-        `No step definition matches:\n  "${s.text}"\n  (${file})`,
+        `No step definition matches:\n  "${s.text}"\n  (${relFile}:${s.line})`,
       );
     }
     await test.step(s.text, async () => {

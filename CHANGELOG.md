@@ -20,6 +20,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Background steps: steps written before the first `##` scenario run before
   every scenario, so shared setup (open the app, reset the API) lives in one
   place.
+- Source locations: the parser records line numbers, and each generated scenario
+  carries its `.md` file and line as a `spec` annotation, so reports and traces
+  point back at the Markdown instead of the generator. Step-not-found errors now
+  include the `.md` file and line.
+- A `playwright-md/reporter` that renders runs grouped by spec, with the exact
+  failing Markdown step and its `.md` location on failure.
 
 ### Fixed
 
