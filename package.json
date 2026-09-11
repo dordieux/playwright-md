@@ -14,6 +14,15 @@
     "acceptance-testing"
   ],
   "license": "MIT",
+  "author": "hyunseung.park",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dordieux/playwright-md.git"
+  },
+  "homepage": "https://github.com/dordieux/playwright-md#readme",
+  "bugs": {
+    "url": "https://github.com/dordieux/playwright-md/issues"
+  },
   "type": "module",
   "packageManager": "pnpm@9.12.3",
   "main": "./dist/index.js",
