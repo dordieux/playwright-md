@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-20
+
+### Changed
+
+- The reporter now prints each scenario as it finishes instead of buffering
+  everything until the end, so a long suite shows progress. Found while running
+  a 148-scenario suite that sat silent for four minutes. Failures are recapped
+  before the summary.
+
 ## [0.2.0] - 2026-09-20
 
 ### Changed

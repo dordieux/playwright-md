@@ -48,6 +48,7 @@ interface Row {
 export default class MarkdownReporter implements Reporter {
   private rows: Row[] = [];
   private startedAt = 0;
+  private lastFile = "";
 
   onBegin(): void {
     this.startedAt = Date.now();
@@ -61,7 +62,7 @@ export default class MarkdownReporter implements Reporter {
       specAnnotation ?? path.relative(process.cwd(), test.location.file);
     const file = fileOf(location);
 
-    this.rows.push({
+    const row: Row = {
       location,
       group: test.parent?.title || file,
       file,
@@ -70,64 +71,69 @@ export default class MarkdownReporter implements Reporter {
       duration: result.duration,
       failingStep: failingStep(result.steps),
       error: result.error?.message
-        ? stripAnsi(result.error.message).split("\n").slice(0, 4).join("\n")
+        ? stripAnsi(result.error.message).split("\n").slice(0, 8).join("\n")
         : undefined,
-    });
+    };
+    this.rows.push(row);
+
+    // Print as we go: a long suite should show progress, not sit silent until
+    // the end. The spec header reprints whenever the spec changes.
+    if (row.file !== this.lastFile) {
+      process.stdout.write(`\n${bold(row.group)}  ${dim(row.file)}\n`);
+      this.lastFile = row.file;
+    }
+    this.writeRow(row);
+  }
+
+  private writeRow(row: Row): void {
+    const dur = dim(`(${row.duration}ms)`);
+    if (row.status === "passed") {
+      process.stdout.write(`  ${green("✓")} ${row.title} ${dur}\n`);
+      return;
+    }
+    if (row.status === "skipped") {
+      process.stdout.write(
+        `  ${yellow("○")} ${dim(row.title)} ${dim("(skipped)")}\n`,
+      );
+      return;
+    }
+    process.stdout.write(`  ${red("✗")} ${row.title} ${dur}\n`);
+    if (row.failingStep) {
+      process.stdout.write(`      ${red("at step:")} ${row.failingStep}\n`);
+    }
+    process.stdout.write(`      ${cyan(row.location)}\n`);
+    if (row.error) {
+      for (const l of row.error.split("\n")) {
+        process.stdout.write(`      ${dim(l)}\n`);
+      }
+    }
   }
 
   onEnd(result: FullResult): void {
-    const groups = new Map<string, Row[]>();
-    for (const row of this.rows) {
-      const list = groups.get(row.file);
-      if (list) {
-        list.push(row);
-      } else {
-        groups.set(row.file, [row]);
-      }
-    }
-
-    process.stdout.write("\n");
-    for (const [file, rows] of groups) {
-      process.stdout.write(`${bold(rows[0].group)}  ${dim(file)}\n`);
-      for (const row of rows) {
-        const dur = dim(`(${row.duration}ms)`);
-        if (row.status === "passed") {
-          process.stdout.write(`  ${green("✓")} ${row.title} ${dur}\n`);
-        } else if (row.status === "skipped") {
-          process.stdout.write(
-            `  ${yellow("○")} ${dim(row.title)} ${dim("(skipped)")}\n`,
-          );
-        } else {
-          process.stdout.write(`  ${red("✗")} ${row.title} ${dur}\n`);
-          if (row.failingStep) {
-            process.stdout.write(
-              `      ${red("at step:")} ${row.failingStep}\n`,
-            );
-          }
-          process.stdout.write(`      ${cyan(row.location)}\n`);
-          if (row.error) {
-            for (const l of row.error.split("\n")) {
-              process.stdout.write(`      ${dim(l)}\n`);
-            }
-          }
+    const failures = this.rows.filter(
+      (r) => r.status === "failed" || r.status === "timedOut",
+    );
+    if (failures.length > 0) {
+      process.stdout.write(`\n${bold("Failures")}\n`);
+      for (const row of failures) {
+        process.stdout.write(`  ${red("✗")} ${row.title}\n`);
+        if (row.failingStep) {
+          process.stdout.write(`      ${red("at step:")} ${row.failingStep}\n`);
         }
+        process.stdout.write(`      ${cyan(row.location)}\n`);
       }
-      process.stdout.write("\n");
     }
 
     const passed = this.rows.filter((r) => r.status === "passed").length;
-    const failed = this.rows.filter(
-      (r) => r.status === "failed" || r.status === "timedOut",
-    ).length;
     const skipped = this.rows.filter((r) => r.status === "skipped").length;
     const secs = ((Date.now() - this.startedAt) / 1000).toFixed(1);
 
     const parts = [green(`${passed} passed`)];
-    if (failed) parts.push(red(`${failed} failed`));
+    if (failures.length) parts.push(red(`${failures.length} failed`));
     if (skipped) parts.push(yellow(`${skipped} skipped`));
     const verdict = result.status === "passed" ? green("✓") : red("✗");
     process.stdout.write(
-      `${verdict} ${parts.join(dim(", "))}  ${dim(`(${secs}s)`)}\n`,
+      `\n${verdict} ${parts.join(dim(", "))}  ${dim(`(${secs}s)`)}\n`,
     );
   }
 }
