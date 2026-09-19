@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-20
+
+### Fixed
+
+- Documented that the Quickstart project must be ESM (`type: module`), since the
+  examples use `import.meta.url` — a fresh `npm init -y` project failed to load
+  the spec otherwise.
+- `reporter: [["playwright-md/reporter"]]` failed to resolve with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, because the export map only declared an
+  `import` condition while Playwright resolves reporters through CommonJS
+  resolution. Both entry points now also declare a `default` condition.
+- Added a `./package.json` entry to `exports`, so tools that read the package's
+  own `package.json` no longer hit `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+- Stopped shipping source maps that pointed at `src/` (absent from the published
+  package), which made test locations resolve to a non-existent file.
+
 ## [0.1.0] - 2026-09-19
 
 ### Added

@@ -11,7 +11,16 @@ runner. You keep everything that makes Playwright great — fixtures, parallelis
 tracing, the HTML reporter, the VS Code extension — and get to describe behavior
 in plain Markdown that non-engineers can read and review.
 
+## Quickstart
+
+```bash
+npm init -y
+npm pkg set type=module          # the examples use ESM (import.meta.url)
+npm i -D playwright-md @playwright/test
+```
+
 ```markdown
+<!-- specs/calculator.md -->
 # Calculator
 
 ## adds two numbers -- smoke
@@ -42,7 +51,21 @@ defineMarkdownSpecs(new URL("./specs", import.meta.url).pathname);
 npx playwright test
 ```
 
-That's it — every `##` scenario is now a real Playwright test.
+That's it — every `##` scenario is now a real Playwright test. For output grouped
+by spec (and, on failure, the exact Markdown step and its `.md` line), add the
+reporter in a `playwright.config.ts`:
+
+```ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  reporter: [["playwright-md/reporter"]],
+});
+```
+
+> **Note:** the examples use `import.meta.url`, so the project must be ESM — set
+> `"type": "module"` in `package.json` (the `npm pkg set type=module` above). In a
+> CommonJS project, use `__dirname` instead.
 
 ## Why
 
