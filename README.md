@@ -1,5 +1,9 @@
 # playwright-md
 
+[![CI](https://github.com/dordieux/playwright-md/actions/workflows/ci.yml/badge.svg)](https://github.com/dordieux/playwright-md/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/playwright-md.svg)](https://www.npmjs.com/package/playwright-md)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 Write [Playwright](https://playwright.dev) tests as readable **Markdown specs**.
 
 playwright-md is a thin, Gauge-flavored spec layer on top of the Playwright test

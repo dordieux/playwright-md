@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-19
+
 ### Added
 
 - Initial proof of concept: parse Markdown specs, generate Playwright tests,
@@ -26,6 +28,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   include the `.md` file and line.
 - A `playwright-md/reporter` that renders runs grouped by spec, with the exact
   failing Markdown step and its `.md` location on failure.
+- Step-not-found errors suggest the closest registered step ("Did you mean …").
 
 ### Fixed
 
