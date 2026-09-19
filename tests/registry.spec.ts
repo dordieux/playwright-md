@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { parseMarkdown } from "../src/parser.js";
-import { step, findStep, resetSteps } from "../src/registry.js";
+import { step, findStep, resetSteps, suggestStep } from "../src/registry.js";
 
 test.beforeEach(() => resetSteps());
 
@@ -47,4 +47,16 @@ test("returns null when no definition matches", () => {
 `).scenarios[0].steps[0];
 
   expect(findStep(s)).toBeNull();
+});
+
+test("suggests the closest step for a near miss", () => {
+  step("the value is {}", () => {});
+  step("the result is {}", () => {});
+  // A small typo in "result" should point back to the right template.
+  expect(suggestStep("the reslt is {}")).toBe("the result is {}");
+});
+
+test("suggests nothing when no step is close", () => {
+  step("the value is {}", () => {});
+  expect(suggestStep("navigate to the dashboard")).toBeNull();
 });

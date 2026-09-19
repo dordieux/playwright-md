@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { test } from "./test.js";
-import { findStep } from "./registry.js";
+import { findStep, suggestStep } from "./registry.js";
 import { parseMarkdown } from "./parser.js";
 import { collectSpecFiles } from "./files.js";
 import type { Step } from "./types.js";
@@ -82,8 +82,10 @@ async function runSteps(
   for (const s of steps) {
     const match = findStep(s);
     if (!match) {
+      const hint = suggestStep(s.template);
       throw new Error(
-        `No step definition matches:\n  "${s.text}"\n  (${relFile}:${s.line})`,
+        `No step definition matches:\n  "${s.text}"\n  (${relFile}:${s.line})` +
+          (hint ? `\n  Did you mean: "${hint}"?` : ""),
       );
     }
     await test.step(s.text, async () => {

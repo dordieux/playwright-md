@@ -62,6 +62,46 @@ export function stepCount(): number {
   return entries.length;
 }
 
+/**
+ * Suggest the registered template closest to an unmatched step, for a helpful
+ * "did you mean" hint. Compares against template steps (regex steps are skipped)
+ * and returns null when nothing is close enough to be useful.
+ */
+export function suggestStep(template: string): string | null {
+  let best: string | null = null;
+  let bestDistance = Infinity;
+  for (const entry of entries) {
+    if (entry.kind !== "template") continue;
+    const distance = levenshtein(template, entry.template);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = entry.template;
+    }
+  }
+  if (best === null) return null;
+  // Only suggest when the edit distance is a small fraction of the length, so we
+  // don't propose an unrelated step.
+  const threshold = Math.max(3, Math.floor(template.length * 0.4));
+  return bestDistance <= threshold ? best : null;
+}
+
+function levenshtein(a: string, b: string): number {
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const prev = new Array<number>(cols);
+  const curr = new Array<number>(cols);
+  for (let j = 0; j < cols; j++) prev[j] = j;
+  for (let i = 1; i < rows; i++) {
+    curr[0] = i;
+    for (let j = 1; j < cols; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j < cols; j++) prev[j] = curr[j];
+  }
+  return prev[cols - 1];
+}
+
 /** Clear the registry. Intended for unit tests. */
 export function resetSteps(): void {
   entries.length = 0;
