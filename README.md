@@ -193,6 +193,14 @@ step("the response status is {}", ({ world, args }) => {
 });
 ```
 
+When a spec's scenarios share one stateful backend and each resets it on entry,
+tell playwright-md not to run them concurrently — otherwise a `fullyParallel`
+config lets their resets race:
+
+```ts
+defineMarkdownSpecs(specsDir, { parallel: false });
+```
+
 See `examples/api` for the full mock-API example.
 
 ## Reports

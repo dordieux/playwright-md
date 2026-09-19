@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.1] - 2026-09-20
 
+### Added
+
+- `defineMarkdownSpecs(target, { parallel: false })` runs a spec's scenarios one
+  at a time in a single worker, for specs whose scenarios share one stateful
+  backend (a database, a mock server) and reset it on entry.
+
 ### Fixed
 
 - Documented that the Quickstart project must be ESM (`type: module`), since the

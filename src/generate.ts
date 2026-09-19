@@ -15,6 +15,15 @@ export interface DefineOptions {
    * never need a browser. Group browser specs in their own directory.
    */
   browser?: boolean;
+  /**
+   * Whether the scenarios in these specs may run in parallel with each other.
+   *
+   * Set `false` when they share one stateful backend — a database, a mock
+   * server — that each scenario resets on entry. Without it, a `fullyParallel`
+   * config runs those scenarios concurrently and their resets race. Omit to
+   * inherit the project's configuration.
+   */
+  parallel?: boolean;
 }
 
 /**
@@ -45,6 +54,14 @@ export function defineMarkdownSpecs(
     const relFile = path.relative(process.cwd(), file);
 
     test.describe(suite, () => {
+      if (opts.parallel === false) {
+        // Run these scenarios one at a time in a single worker, so scenarios
+        // that reset a shared backend don't race each other.
+        test.describe.configure({ mode: "default" });
+      } else if (opts.parallel === true) {
+        test.describe.configure({ mode: "parallel" });
+      }
+
       for (const scenario of spec.scenarios) {
         // Record where this scenario lives in the Markdown, so reports and
         // traces can point back at the .md instead of the generator.
