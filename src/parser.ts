@@ -2,7 +2,9 @@ import type { Spec, Scenario, Step, Table } from "./types.js";
 
 const H1 = /^#\s+(.*)$/;
 const H2 = /^##\s+(.*)$/;
-const STEP = /^[*-]\s+(.*)$/;
+// Steps are asterisk bullets only. A `-` bullet is prose, so a spec can carry
+// explanatory bullet lists without them being mistaken for steps.
+const STEP = /^\*\s+(.*)$/;
 const QUOTED = /"([^"]*)"/g;
 
 /**
@@ -13,9 +15,10 @@ const QUOTED = /"([^"]*)"/g;
  * - `# Heading` — the spec title (first one wins).
  * - `## Scenario -- tag` — a scenario; the optional ` -- tag` suffix becomes a
  *   Playwright tag (`@tag`).
- * - `* step text with "args"` (or `- ...`) — a step. Double-quoted substrings
- *   are the step's positional arguments. Steps before the first `##` scenario
- *   become background steps, run before every scenario.
+ * - `* step text with "args"` — a step. Double-quoted substrings are the step's
+ *   positional arguments. Steps before the first `##` scenario become background
+ *   steps, run before every scenario. Only `*` marks a step; `-` bullets are
+ *   prose, so explanatory lists are left alone.
  * - A Markdown table indented under a step becomes that step's data table.
  *
  * Everything else (blank lines, prose, headings deeper than `##`) is ignored,

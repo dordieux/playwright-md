@@ -74,6 +74,20 @@ test("collects steps before the first scenario as background", () => {
   expect(spec.scenarios[0].steps).toHaveLength(1);
 });
 
+test("treats dash bullets as prose, not steps", () => {
+  const spec = parseMarkdown(`# S
+
+## sc
+
+Explanatory list that must not become steps:
+- first note
+- second note
+
+* a real step
+`);
+  expect(spec.scenarios[0].steps.map((s) => s.text)).toEqual(["a real step"]);
+});
+
 test("a scenario without a tag has tag null", () => {
   const spec = parseMarkdown(`# S
 ## no tag here

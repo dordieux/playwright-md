@@ -98,7 +98,7 @@ A small, Gauge-flavored subset of Markdown:
 | --- | --- |
 | `# Title` | Spec title (the Playwright `describe` block). |
 | `## Scenario -- tag` | A scenario. The optional ` -- tag` becomes a Playwright tag (`@tag`). |
-| `* step text with "args"` | A step. Double-quoted substrings are its positional arguments. |
+| `* step text with "args"` | A step. Double-quoted substrings are its positional arguments. Only `*` marks a step — `-` bullets are prose. |
 | A Markdown table indented under a step | The step's data table (`ctx.table`). |
 
 Anything else — prose, blank lines, deeper headings — is ignored, so a spec

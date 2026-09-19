@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-20
+
+### Changed
+
+- **Only `*` marks a step.** `-` bullets are now prose, matching Gauge. Found by
+  running an existing Gauge spec unmodified: its explanatory `-` list was being
+  parsed as steps. If you wrote steps with `-`, change them to `*`.
+
 ## [0.1.1] - 2026-09-20
 
 ### Added
