@@ -36,33 +36,60 @@ export class StepRegistry {
    */
   add(pattern: string | RegExp, fn: (ctx: never) => unknown): void {
     const fixtures = requestedFixtures(fn);
-    if (typeof pattern === "string") {
-      this.definitions.push({
-        template: normalizeTemplate(pattern),
-        regexp: null,
-        fixtures,
-        fn,
-      });
-    } else {
-      this.definitions.push({ template: null, regexp: pattern, fixtures, fn });
+    const definition: StepDefinition =
+      typeof pattern === "string"
+        ? { template: normalizeTemplate(pattern), regexp: null, fixtures, fn }
+        : { template: null, regexp: pattern, fixtures, fn };
+
+    // Registering the same pattern twice is always a mistake: one of the two
+    // would silently never run.
+    const duplicate = this.definitions.find((d) =>
+      definition.template !== null
+        ? d.template === definition.template
+        : d.regexp?.source === definition.regexp!.source &&
+          d.regexp?.flags === definition.regexp!.flags,
+    );
+    if (duplicate) {
+      throw new Error(
+        `a step is already defined for ${describe(definition)}. ` +
+          "Two definitions for the same step would leave one of them dead; " +
+          "remove or rename one.",
+      );
     }
+
+    this.definitions.push(definition);
   }
 
-  /** Find the definition bound to a parsed spec step, or null. */
+  /**
+   * Find the definition bound to a parsed spec step.
+   *
+   * Returns null when nothing matches. Throws when more than one definition
+   * matches: which one would run is then an accident of registration order, so
+   * it is reported rather than silently resolved.
+   */
   find(step: Step): StepMatch | null {
+    const matches: StepMatch[] = [];
     for (const definition of this.definitions) {
       if (definition.template !== null) {
         if (definition.template === step.template) {
-          return { definition, args: step.args };
+          matches.push({ definition, args: step.args });
         }
         continue;
       }
       const match = definition.regexp!.exec(step.text);
       if (match) {
-        return { definition, args: match.slice(1) };
+        matches.push({ definition, args: match.slice(1) });
       }
     }
-    return null;
+
+    if (matches.length > 1) {
+      throw new Error(
+        `"${step.text}" matches ${matches.length} step definitions:\n` +
+          matches.map((m) => `  - ${describe(m.definition)}`).join("\n") +
+          "\nWhich one runs would depend on registration order; make the patterns distinct.",
+      );
+    }
+    return matches[0] ?? null;
   }
 
   /**
@@ -90,6 +117,13 @@ export class StepRegistry {
   get size(): number {
     return this.definitions.length;
   }
+}
+
+/** A definition's pattern, for diagnostics. */
+function describe(definition: StepDefinition): string {
+  return definition.template !== null
+    ? `the template "${definition.template}"`
+    : `the pattern ${String(definition.regexp)}`;
 }
 
 /**

@@ -82,3 +82,34 @@ test("registries are independent", () => {
   expect(a.size).toBe(1);
   expect(b.size).toBe(0);
 });
+
+test("rejects two definitions for the same template", () => {
+  const registry = new StepRegistry();
+  registry.add("the value is {}", ({ args }: { args: string[] }) => void args);
+
+  expect(() => registry.add("the value is {}", ({ args }: { args: string[] }) => void args)).toThrow(
+    /already defined/,
+  );
+});
+
+test("rejects two definitions for the same RegExp", () => {
+  const registry = new StepRegistry();
+  registry.add(/^wait (\d+)$/, ({ args }: { args: string[] }) => void args);
+
+  expect(() => registry.add(/^wait (\d+)$/, ({ args }: { args: string[] }) => void args)).toThrow(
+    /already defined/,
+  );
+});
+
+test("reports a step matched by more than one definition", () => {
+  const registry = new StepRegistry();
+  registry.add("wait 5 seconds", ({ args }: { args: string[] }) => void args);
+  registry.add(/^wait (\d+) seconds$/, ({ args }: { args: string[] }) => void args);
+
+  expect(() =>
+    registry.find(firstStep(`# S
+## sc
+* wait 5 seconds
+`)),
+  ).toThrow(/matches 2 step definitions/);
+});

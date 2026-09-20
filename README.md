@@ -205,6 +205,26 @@ scenario: async ({}, use, testInfo) => {
 },
 ```
 
+## Troubleshooting
+
+**`Test has unknown parameter "x"`, pointing inside `playwright-md`.** A step
+destructured a fixture your `test` does not define. Playwright resolves fixtures
+before the test body runs, so the failure surfaces at the generated call rather
+than at the step — search your step definitions for `x` and either define that
+fixture or fix the name.
+
+**`a step is already defined for ...`.** Two definitions share a pattern, so one
+of them could never run. Remove or rename one.
+
+**`"..." matches 2 step definitions`.** A spec step matches more than one
+pattern — typically a literal template and a RegExp that both cover it. Which
+one would run depends on registration order, so make the patterns distinct.
+
+**A `.md` edit is not picked up.** Specs are read when Playwright collects
+tests, so re-running picks up edits with no build step. Playwright's watch and
+`--only-changed` follow the TypeScript module graph, which a `.md` is not part
+of, so those will not notice a spec-only change.
+
 ## Why
 
 [Gauge](https://gauge.org) has a lovely idea: tests as Markdown. But it ships a

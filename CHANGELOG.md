@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-20
+
+### Added
+
+- Registering two definitions for the same pattern now fails immediately: one of
+  them could never run.
+- A spec step matched by more than one definition is reported as a failing
+  scenario, naming both patterns, instead of silently resolving to whichever was
+  registered first.
+- A troubleshooting section covering the errors a step can produce, including
+  Playwright's `Test has unknown parameter` (a step asking for a fixture the
+  `test` does not define) and why watch mode does not follow `.md` edits.
+
 ## [0.3.1] - 2026-09-20
 
 ### Added

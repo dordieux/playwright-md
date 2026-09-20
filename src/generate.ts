@@ -92,7 +92,18 @@ function prepare(
   const plan: PreparedStep[] = [];
 
   for (const step of steps) {
-    const match = registry.find(step);
+    let match;
+    try {
+      match = registry.find(step);
+    } catch (err) {
+      // Ambiguous definitions: report it as a failing scenario rather than
+      // crashing collection, so the rest of the suite still runs.
+      plan.push({
+        step,
+        unmatched: `${(err as Error).message}\n  (${relFile}:${step.line})`,
+      });
+      continue;
+    }
     if (!match) {
       const hint = registry.suggest(step.template);
       plan.push({
