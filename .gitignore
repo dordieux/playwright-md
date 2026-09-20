@@ -21,3 +21,6 @@ blob-report/
 .env
 .env.*
 *.pem
+
+# Local packs
+*.tgz
