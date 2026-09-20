@@ -68,7 +68,7 @@ export function createSpecs<TestArgs extends KeyValue, WorkerArgs extends KeyVal
   const registry = new StepRegistry();
 
   // Steps are reported through the same `test` the suite is generated from.
-  setStepReporter((title, body) => test.step(title, body));
+  setStepReporter((title, body, location) => test.step(title, body, { location }));
 
   return {
     step(pattern, fn) {

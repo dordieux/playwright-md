@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-20
+
+### Added
+
+- Each Markdown step now carries its own `.md` file and line through
+  `test.step`'s `location`, so a failure points at the step that failed rather
+  than at the scenario heading — in the bundled reporter, the HTML report and
+  the trace viewer alike.
+- `specInfo(testInfo)` returns the spec file, line and tag a scenario was
+  generated from. Suites that keep fixtures in directories named after the spec
+  and tag were reverse-engineering the annotation string to find this.
+
+### Fixed
+
+- `dist/` no longer ships a module left over from a previous build, and local
+  `npm pack` tarballs are ignored rather than committed.
+
 ## [0.3.0] - 2026-09-20
 
 The execution model is now Playwright's. The Markdown dialect is unchanged, so

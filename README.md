@@ -190,9 +190,20 @@ Todo API  examples/api/todos.md
 ✗ 2 passed, 1 failed  (2.4s)
 ```
 
-Every generated scenario also carries its `.md` location as a `spec`
-annotation, so the built-in `html` reporter and traces point at the Markdown
-too.
+Each step carries its own `.md` file and line, so the built-in `html` reporter
+and the trace viewer link to the exact step too — not just to the scenario.
+
+If your suite keeps fixtures in directories named after the spec and tag,
+`specInfo(testInfo)` tells you which scenario is running:
+
+```ts
+import { specInfo } from "playwright-md";
+
+scenario: async ({}, use, testInfo) => {
+  const info = specInfo(testInfo)!;   // { file, line, tag }
+  await use(resolveResources(info.file, info.tag));
+},
+```
 
 ## Why
 

@@ -73,7 +73,7 @@ export function createDefineSpecs(
           // The body is generated with a per-scenario destructuring pattern, so
           // its shape is not statically known to TypeScript.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          test(scenario.title, details, buildTestBody(prepared, relFile) as any);
+          test(scenario.title, details, buildTestBody(prepared, file) as any);
         }
       });
     }
@@ -121,14 +121,14 @@ function prepare(
  */
 function buildTestBody(
   prepared: PreparedScenario,
-  relFile: string,
+  file: string,
 ): (...args: never[]) => Promise<void> {
   const runner = async (fixtures: Record<string, unknown>): Promise<void> => {
     for (const entry of prepared.plan) {
       if ("unmatched" in entry) {
         throw new Error(entry.unmatched);
       }
-      await stepRunner(entry, fixtures, relFile);
+      await stepRunner(entry, fixtures, file);
     }
   };
   return wrapperFor(prepared.fixtures)(runner) as (
@@ -136,13 +136,27 @@ function buildTestBody(
   ) => Promise<void>;
 }
 
+/** Where a Markdown step lives, for `test.step`'s `location`. */
+export interface StepLocation {
+  file: string;
+  line: number;
+  column: number;
+}
+
 /** `test.step` wrapper so each Markdown step shows up in reports and traces. */
-let reportStep: (title: string, body: () => Promise<void>) => Promise<void> =
-  async (_title, body) => body();
+let reportStep: (
+  title: string,
+  body: () => Promise<void>,
+  location: StepLocation,
+) => Promise<void> = async (_title, body) => body();
 
 /** Injected by `createSpecs` so this module does not import a `test` itself. */
 export function setStepReporter(
-  fn: (title: string, body: () => Promise<void>) => Promise<void>,
+  fn: (
+    title: string,
+    body: () => Promise<void>,
+    location: StepLocation,
+  ) => Promise<void>,
 ): void {
   reportStep = fn;
 }
@@ -150,9 +164,11 @@ export function setStepReporter(
 async function stepRunner(
   entry: Extract<PreparedStep, { run: unknown }>,
   fixtures: Record<string, unknown>,
-  relFile: string,
+  file: string,
 ): Promise<void> {
-  void relFile;
+  // Point the step at its own line in the Markdown, so reports and the trace
+  // viewer link to the step rather than to this generator.
+  const location = { file, line: entry.step.line, column: 1 };
   await reportStep(entry.step.text, async () => {
     await (entry.run as (ctx: unknown) => unknown)({
       ...fixtures,
@@ -160,7 +176,7 @@ async function stepRunner(
       table: entry.step.table,
       text: entry.step.text,
     });
-  });
+  }, location);
 }
 
 type Wrapper = (

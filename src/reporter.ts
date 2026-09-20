@@ -30,7 +30,7 @@ interface Row {
   title: string;
   status: TestResult["status"];
   duration: number;
-  failingStep?: string;
+  failingStep?: { title: string; location?: string };
   error?: string;
 }
 
@@ -99,9 +99,12 @@ export default class MarkdownReporter implements Reporter {
     }
     process.stdout.write(`  ${red("✗")} ${row.title} ${dur}\n`);
     if (row.failingStep) {
-      process.stdout.write(`      ${red("at step:")} ${row.failingStep}\n`);
+      process.stdout.write(`      ${red("at step:")} ${row.failingStep.title}\n`);
     }
-    process.stdout.write(`      ${cyan(row.location)}\n`);
+    // Prefer the failing step's own line over the scenario's.
+    process.stdout.write(
+      `      ${cyan(row.failingStep?.location ?? row.location)}\n`,
+    );
     if (row.error) {
       for (const l of row.error.split("\n")) {
         process.stdout.write(`      ${dim(l)}\n`);
@@ -118,9 +121,11 @@ export default class MarkdownReporter implements Reporter {
       for (const row of failures) {
         process.stdout.write(`  ${red("✗")} ${row.title}\n`);
         if (row.failingStep) {
-          process.stdout.write(`      ${red("at step:")} ${row.failingStep}\n`);
+          process.stdout.write(`      ${red("at step:")} ${row.failingStep.title}\n`);
         }
-        process.stdout.write(`      ${cyan(row.location)}\n`);
+        process.stdout.write(
+          `      ${cyan(row.failingStep?.location ?? row.location)}\n`,
+        );
       }
     }
 
@@ -143,11 +148,19 @@ function fileOf(location: string): string {
   return idx > 1 ? location.slice(0, idx) : location;
 }
 
-function failingStep(steps: readonly TestStep[]): string | undefined {
+/** The innermost failing Markdown step, with the `.md` location it carries. */
+function failingStep(
+  steps: readonly TestStep[],
+): { title: string; location?: string } | undefined {
   for (const step of steps) {
     const deeper = failingStep(step.steps);
     if (deeper) return deeper;
-    if (step.error && step.category === "test.step") return step.title;
+    if (step.error && step.category === "test.step") {
+      const loc = step.location
+        ? `${path.relative(process.cwd(), step.location.file)}:${step.location.line}`
+        : undefined;
+      return { title: step.title, location: loc };
+    }
   }
   return undefined;
 }
