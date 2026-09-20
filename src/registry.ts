@@ -1,97 +1,111 @@
-import type { Step, StepFn } from "./types.js";
+import { requestedFixtures } from "./fixtures.js";
+import type { Step } from "./types.js";
 
-interface TemplateEntry {
-  kind: "template";
-  template: string;
-  fn: StepFn;
+/** A registered step definition, with the fixtures its callback asks for. */
+export interface StepDefinition {
+  /** Normalized template (`{}` at each argument slot), for template steps. */
+  template: string | null;
+  /** Pattern for RegExp steps. */
+  regexp: RegExp | null;
+  /** Playwright fixture names the callback destructures. */
+  fixtures: string[];
+  fn: (ctx: never) => unknown;
 }
-interface RegexEntry {
-  kind: "regex";
-  re: RegExp;
-  fn: StepFn;
-}
-type Entry = TemplateEntry | RegexEntry;
-
-const entries: Entry[] = [];
 
 /** The resolved binding of a spec step to its definition. */
 export interface StepMatch {
-  fn: StepFn;
+  definition: StepDefinition;
   args: string[];
 }
 
 /**
- * Register a step definition.
- *
- * Two forms are supported:
- *
- * - **Template string** — write the step sentence with `{}` at each argument
- *   position, e.g. `step("the value is {}", ...)`. It binds to spec steps whose
- *   quoted arguments occupy the same positions (`the value is "2"`). The `{}`
- *   arguments arrive as `ctx.args`.
- * - **RegExp** — matched against the raw step text; capture groups become
- *   `ctx.args`.
+ * A step registry. Each `createSpecs()` owns one, so suites can coexist in a
+ * process without sharing module-level state.
  */
-export function step(pattern: string | RegExp, fn: StepFn): void {
-  if (typeof pattern === "string") {
-    entries.push({ kind: "template", template: normalizeTemplate(pattern), fn });
-  } else {
-    entries.push({ kind: "regex", re: pattern, fn });
-  }
-}
+export class StepRegistry {
+  private readonly definitions: StepDefinition[] = [];
 
-/** Find the definition bound to a parsed spec step, or null. */
-export function findStep(s: Step): StepMatch | null {
-  for (const entry of entries) {
-    if (entry.kind === "template") {
-      if (entry.template === s.template) {
-        return { fn: entry.fn, args: s.args };
-      }
+  /**
+   * Register a step definition.
+   *
+   * - **Template string** — the sentence with `{}` at each argument position
+   *   (`"the value is {}"`), bound to spec steps whose quoted arguments sit in
+   *   the same places (`the value is "2"`).
+   * - **RegExp** — matched against the raw step text; capture groups become
+   *   `ctx.args`.
+   */
+  add(pattern: string | RegExp, fn: (ctx: never) => unknown): void {
+    const fixtures = requestedFixtures(fn);
+    if (typeof pattern === "string") {
+      this.definitions.push({
+        template: normalizeTemplate(pattern),
+        regexp: null,
+        fixtures,
+        fn,
+      });
     } else {
-      const m = entry.re.exec(s.text);
-      if (m) {
-        return { fn: entry.fn, args: m.slice(1) };
-      }
+      this.definitions.push({ template: null, regexp: pattern, fixtures, fn });
     }
   }
-  return null;
-}
 
-/** The number of registered step definitions (for diagnostics/tests). */
-export function stepCount(): number {
-  return entries.length;
+  /** Find the definition bound to a parsed spec step, or null. */
+  find(step: Step): StepMatch | null {
+    for (const definition of this.definitions) {
+      if (definition.template !== null) {
+        if (definition.template === step.template) {
+          return { definition, args: step.args };
+        }
+        continue;
+      }
+      const match = definition.regexp!.exec(step.text);
+      if (match) {
+        return { definition, args: match.slice(1) };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The registered template closest to an unmatched step, for a "did you mean"
+   * hint. RegExp steps are skipped, and nothing is suggested when the closest
+   * template is not actually close.
+   */
+  suggest(template: string): string | null {
+    let best: string | null = null;
+    let bestDistance = Infinity;
+    for (const definition of this.definitions) {
+      if (definition.template === null) continue;
+      const distance = levenshtein(template, definition.template);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = definition.template;
+      }
+    }
+    if (best === null) return null;
+    const threshold = Math.max(3, Math.floor(template.length * 0.4));
+    return bestDistance <= threshold ? best : null;
+  }
+
+  /** The number of registered definitions (for diagnostics and tests). */
+  get size(): number {
+    return this.definitions.length;
+  }
 }
 
 /**
- * Suggest the registered template closest to an unmatched step, for a helpful
- * "did you mean" hint. Compares against template steps (regex steps are skipped)
- * and returns null when nothing is close enough to be useful.
+ * Normalize an author's template to the shape the parser produces: the sentence
+ * with `{}` at each argument slot. Slots may optionally be written `"{}"`.
  */
-export function suggestStep(template: string): string | null {
-  let best: string | null = null;
-  let bestDistance = Infinity;
-  for (const entry of entries) {
-    if (entry.kind !== "template") continue;
-    const distance = levenshtein(template, entry.template);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = entry.template;
-    }
-  }
-  if (best === null) return null;
-  // Only suggest when the edit distance is a small fraction of the length, so we
-  // don't propose an unrelated step.
-  const threshold = Math.max(3, Math.floor(template.length * 0.4));
-  return bestDistance <= threshold ? best : null;
+function normalizeTemplate(pattern: string): string {
+  return pattern.replace(/"\{\}"/g, "{}").replace(/\s+/g, " ").trim();
 }
 
 function levenshtein(a: string, b: string): number {
-  const rows = a.length + 1;
   const cols = b.length + 1;
   const prev = new Array<number>(cols);
   const curr = new Array<number>(cols);
   for (let j = 0; j < cols; j++) prev[j] = j;
-  for (let i = 1; i < rows; i++) {
+  for (let i = 1; i <= a.length; i++) {
     curr[0] = i;
     for (let j = 1; j < cols; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
@@ -100,18 +114,4 @@ function levenshtein(a: string, b: string): number {
     for (let j = 0; j < cols; j++) prev[j] = curr[j];
   }
   return prev[cols - 1];
-}
-
-/** Clear the registry. Intended for unit tests. */
-export function resetSteps(): void {
-  entries.length = 0;
-}
-
-/**
- * Normalize an author's template to the same shape the parser produces: a
- * sentence with `{}` at each argument slot. Authors may optionally wrap slots
- * in quotes (`"{}"`); both spellings collapse to `{}`.
- */
-function normalizeTemplate(pattern: string): string {
-  return pattern.replace(/"\{\}"/g, "{}").replace(/\s+/g, " ").trim();
 }

@@ -1,4 +1,5 @@
-import { step, expect } from "playwright-md";
+import { expect } from "@playwright/test";
+import { step } from "../fixtures.js";
 
 interface Todo {
   id: number;
@@ -11,21 +12,19 @@ step("the todo API is empty", async ({ request }) => {
   expect(res.ok()).toBeTruthy();
 });
 
-step("create a todo {}", async ({ request, world, args }) => {
+step("create a todo {}", async ({ request, lastStatus, args }) => {
   const res = await request.post("/todos", { data: { title: args[0] } });
-  world.lastStatus = res.status();
-  if (res.ok()) {
-    world.lastId = ((await res.json()) as Todo).id;
-  }
+  lastStatus.code = res.status();
 });
 
-step("complete the last created todo", async ({ request, world }) => {
-  const res = await request.post(`/todos/${world.lastId}/complete`);
-  world.lastStatus = res.status();
+step("complete the last created todo", async ({ request, lastStatus }) => {
+  const list = (await (await request.get("/todos")).json()) as Todo[];
+  const res = await request.post(`/todos/${list[list.length - 1]?.id}/complete`);
+  lastStatus.code = res.status();
 });
 
-step("the response status is {}", ({ world, args }) => {
-  expect(world.lastStatus).toBe(Number(args[0]));
+step("the response status is {}", ({ lastStatus, args }) => {
+  expect(lastStatus.code).toBe(Number(args[0]));
 });
 
 step("the todo list has {} items", async ({ request, args }) => {

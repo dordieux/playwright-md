@@ -1,6 +1,5 @@
-import { defineMarkdownSpecs } from "playwright-md";
-import "./steps/calculator.steps";
+import { defineSpecs } from "./fixtures.js";
+import "./steps/calculator.steps.js";
 
-// Point at the Markdown specs. Playwright collects this file, which turns every
-// scenario in ./specs into a real test.
-defineMarkdownSpecs(new URL("./specs", import.meta.url).pathname);
+// These steps never destructure `page`, so no browser is started for them.
+defineSpecs(new URL("./specs", import.meta.url).pathname);

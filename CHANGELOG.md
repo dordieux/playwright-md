@@ -6,6 +6,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-20
+
+The execution model is now Playwright's. The Markdown dialect is unchanged, so
+specs port as they are; the TypeScript API is not.
+
+### Changed
+
+- **Steps take fixtures.** A step destructures what it needs, exactly like a
+  Playwright test: `step("...", async ({ page, db, args }) => ...)`. Alongside
+  your fixtures it still receives `args`, `table` and `text`.
+- **`createSpecs(test)` replaces the package-level `step` / `defineMarkdownSpecs`.**
+  Extend Playwright's `test` with your resources, then
+  `export const { step, defineSpecs } = createSpecs(test)`. The step registry
+  belongs to that instance rather than to the module.
+- **`{ browser: true }` is gone.** Only the fixtures a scenario's steps name are
+  created, so a spec whose steps never mention `page` never starts a browser —
+  automatically, and with no flag to drift out of sync.
+- **`world` is gone.** Per-scenario scratch state is a test-scoped fixture you
+  define; per-worker resources are worker-scoped fixtures, which is what lets a
+  suite against a stateful backend run in parallel.
+
+### Added
+
+- `docs/execution-model.md` explaining how specs become tests and why the test
+  body is built per scenario.
+
 ## [0.2.1] - 2026-09-20
 
 ### Changed

@@ -1,23 +1,24 @@
-import { step, expect } from "playwright-md";
+import { expect } from "@playwright/test";
+import { step } from "../fixtures.js";
 
-step("the value is {}", ({ world, args }) => {
-  world.value = Number(args[0]);
+step("the value is {}", ({ total, args }) => {
+  total.value = Number(args[0]);
 });
 
-step("add {}", ({ world, args }) => {
-  world.value = (world.value as number) + Number(args[0]);
+step("add {}", ({ total, args }) => {
+  total.value += Number(args[0]);
 });
 
-step("subtract {}", ({ world, args }) => {
-  world.value = (world.value as number) - Number(args[0]);
+step("subtract {}", ({ total, args }) => {
+  total.value -= Number(args[0]);
 });
 
-step("add each row", ({ world, table }) => {
+step("add each row", ({ total, table }) => {
   for (const row of table?.rows ?? []) {
-    world.value = (world.value as number) + Number(row.n);
+    total.value += Number(row.n);
   }
 });
 
-step("the result is {}", ({ world, args }) => {
-  expect(world.value).toBe(Number(args[0]));
+step("the result is {}", ({ total, args }) => {
+  expect(total.value).toBe(Number(args[0]));
 });

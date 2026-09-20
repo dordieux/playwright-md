@@ -1,8 +1,6 @@
-import { defineMarkdownSpecs } from "playwright-md";
-import "./steps/todo.steps";
+import { defineSpecs } from "./fixtures.js";
+import "./steps/todo.steps.js";
 
-// `browser: true` provides Playwright's `page` to steps (as ctx.page) and runs
-// each scenario in a real browser.
-defineMarkdownSpecs(new URL("./browser", import.meta.url).pathname, {
-  browser: true,
-});
+// No `browser` flag: these steps destructure `page`, so Playwright starts a
+// browser for them and for nothing else.
+defineSpecs(new URL("./browser", import.meta.url).pathname);

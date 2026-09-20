@@ -1,5 +1,3 @@
-import type { APIRequestContext, Page } from "@playwright/test";
-
 /**
  * A parsed data table attached to a step, e.g.
  *
@@ -56,35 +54,12 @@ export interface Spec {
   file: string;
 }
 
-/**
- * Per-scenario scratch state handed to every step in that scenario. A fresh
- * object is created per scenario (via a Playwright fixture), so steps never
- * share hidden global state across scenarios.
- */
-export type World = Record<string, unknown>;
-
-/** The single argument object passed to a step definition. */
-export interface StepContext {
-  /** Per-scenario scratch state, shared across the steps of one scenario. */
-  world: World;
+/** The step's own data, supplied by playwright-md alongside the fixtures. */
+export interface StepData {
   /** The step's quoted arguments (or regex capture groups), in order. */
   args: string[];
   /** The step's data table, or null. */
   table: Table | null;
   /** The raw step text, for diagnostics. */
   text: string;
-  /**
-   * Playwright's HTTP client, for API steps. Always available (it launches no
-   * browser). Use `use.baseURL` in the Playwright config to call relative paths.
-   */
-  request: APIRequestContext;
-  /**
-   * The Playwright page, present only for specs defined with `{ browser: true }`.
-   * Browser-driving steps use it; pure-logic specs leave it undefined so they
-   * never launch (or need) a browser.
-   */
-  page?: Page;
 }
-
-/** A step definition body. */
-export type StepFn = (ctx: StepContext) => void | Promise<void>;

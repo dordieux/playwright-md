@@ -6,10 +6,10 @@
 
 Write [Playwright](https://playwright.dev) tests as readable **Markdown specs**.
 
-playwright-md is a thin, Gauge-flavored spec layer on top of the Playwright test
-runner. You keep everything that makes Playwright great — fixtures, parallelism,
-tracing, the HTML reporter, the VS Code extension — and get to describe behavior
-in plain Markdown that non-engineers can read and review.
+Specs are Markdown that non-engineers can read and review. Steps are ordinary
+Playwright code: they take fixtures, so the resources a suite needs — a browser,
+an HTTP client, a database, a mock server — are declared and scoped the way
+Playwright already does it.
 
 ## Quickstart
 
@@ -17,6 +17,30 @@ in plain Markdown that non-engineers can read and review.
 npm init -y
 npm pkg set type=module          # the examples use ESM (import.meta.url)
 npm i -D playwright-md @playwright/test
+```
+
+```ts
+// fixtures.ts — bind playwright-md to your `test`
+import { test as base } from "@playwright/test";
+import { createSpecs } from "playwright-md";
+
+export const test = base.extend<{ total: { value: number } }>({
+  total: async ({}, use) => {
+    await use({ value: 0 });
+  },
+});
+
+export const { step, defineSpecs } = createSpecs(test);
+```
+
+```ts
+// steps/calculator.steps.ts — a step destructures what it needs
+import { expect } from "@playwright/test";
+import { step } from "../fixtures.js";
+
+step("the value is {}", ({ total, args }) => { total.value = Number(args[0]); });
+step("add {}",          ({ total, args }) => { total.value += Number(args[0]); });
+step("the result is {}",({ total, args }) => { expect(total.value).toBe(Number(args[0])); });
 ```
 
 ```markdown
@@ -31,31 +55,22 @@ npm i -D playwright-md @playwright/test
 ```
 
 ```ts
-// steps/calculator.steps.ts
-import { step, expect } from "playwright-md";
-
-step("the value is {}", ({ world, args }) => { world.value = Number(args[0]); });
-step("add {}",          ({ world, args }) => { world.value = (world.value as number) + Number(args[0]); });
-step("the result is {}",({ world, args }) => { expect(world.value).toBe(Number(args[0])); });
-```
-
-```ts
 // calculator.spec.ts — Playwright collects this file
-import { defineMarkdownSpecs } from "playwright-md";
-import "./steps/calculator.steps";
+import { defineSpecs } from "./fixtures.js";
+import "./steps/calculator.steps.js";
 
-defineMarkdownSpecs(new URL("./specs", import.meta.url).pathname);
+defineSpecs(new URL("./specs", import.meta.url).pathname);
 ```
 
 ```bash
 npx playwright test
 ```
 
-That's it — every `##` scenario is now a real Playwright test. For output grouped
-by spec (and, on failure, the exact Markdown step and its `.md` line), add the
-reporter in a `playwright.config.ts`:
+Every `##` scenario is now a real Playwright test. For output grouped by spec —
+and, on failure, the exact Markdown step and its `.md` line — add the reporter:
 
 ```ts
+// playwright.config.ts
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
@@ -64,31 +79,74 @@ export default defineConfig({
 ```
 
 > **Note:** the examples use `import.meta.url`, so the project must be ESM — set
-> `"type": "module"` in `package.json` (the `npm pkg set type=module` above). In a
-> CommonJS project, use `__dirname` instead.
+> `"type": "module"` in `package.json`. In a CommonJS project, use `__dirname`.
 
-## Why
+## Steps take fixtures
 
-[Gauge](https://gauge.org) has a lovely idea: tests as Markdown. But it ships a
-whole runtime — a separate process, a language-runner protocol, plugins, project
-scaffolding — that you carry everywhere. Playwright already has a fast, modern
-runner with first-class fixtures, tracing, and tooling. playwright-md keeps Gauge's
-Markdown expressiveness and drops the rest by **compiling specs into Playwright
-tests** instead of running its own engine.
+A step declares its dependencies by destructuring, exactly like a Playwright
+test. Alongside your fixtures it receives the step's own data: `args` (the
+double-quoted values), `table`, and `text`.
 
-## How it works
+```ts
+step("the page shows {}", async ({ page, args }) => {
+  await expect(page.getByRole("heading")).toHaveText(args[0]);
+});
 
-`defineMarkdownSpecs()` runs at collection time inside a `*.spec.ts` file:
+step("the API has {} todos", async ({ request, args }) => {
+  const todos = await (await request.get("/todos")).json();
+  expect(todos).toHaveLength(Number(args[0]));
+});
+```
 
-1. It reads your `.md` files and parses each `##` scenario into ordered steps.
-2. For every scenario it emits a Playwright `test()`; every step runs inside a
-   `test.step()`, so it appears individually in reports and traces.
-3. Steps bind to definitions you registered with `step()`.
-4. Each scenario gets a fresh `world` object (a Playwright fixture) for scratch
-   state — so nothing leaks between scenarios, and there are no module globals.
+**Only the fixtures a scenario's steps actually name are created.** A spec whose
+steps never mention `page` never starts a browser — there is no flag to set, and
+no way for the two to drift apart.
 
-Because tests are generated at collection time, the whole Playwright toolchain
-(`--ui`, `--trace`, sharding, retries, reporters) works unchanged.
+Steps can also be registered with a RegExp, whose capture groups become `args`:
+
+```ts
+step(/^wait (\d+) seconds$/, async ({ args }) => { ... });
+```
+
+## Running against a stateful backend, in parallel
+
+This is what fixtures buy you. Scenarios that share one database cannot run
+concurrently — but scenarios that each have *their own* can. Make the resource
+**worker-scoped** and every Playwright worker gets its own:
+
+```ts
+export const test = base.extend<{}, { db: Database; wiremock: WireMock }>({
+  db: [async ({}, use, workerInfo) => {
+    const db = await connect(`app_w${workerInfo.parallelIndex}`);
+    await use(db);
+    await db.end();
+  }, { scope: "worker" }],
+
+  wiremock: [async ({}, use, workerInfo) => {
+    await use(new WireMock(50051 + workerInfo.parallelIndex));
+  }, { scope: "worker" }],
+});
+```
+
+Steps then just ask for them, and isolation is a property of the setup rather
+than something each suite re-implements:
+
+```ts
+step("the table {} has {} rows", async ({ db, args }) => {
+  expect(await db.count(args[0])).toBe(Number(args[1]));
+});
+```
+
+Several resources of the same kind are no different — a suite that reads from
+one database and writes to another declares `sourceDb` and `db` as two
+fixtures.
+
+If your scenarios genuinely share one backend that each of them resets, tell
+playwright-md not to run them concurrently:
+
+```ts
+defineSpecs(specsDir, { parallel: false });
+```
 
 ## Spec syntax
 
@@ -99,35 +157,11 @@ A small, Gauge-flavored subset of Markdown:
 | `# Title` | Spec title (the Playwright `describe` block). |
 | `## Scenario -- tag` | A scenario. The optional ` -- tag` becomes a Playwright tag (`@tag`). |
 | `* step text with "args"` | A step. Double-quoted substrings are its positional arguments. Only `*` marks a step — `-` bullets are prose. |
+| Steps before the first `##` | Background: they run before every scenario. |
 | A Markdown table indented under a step | The step's data table (`ctx.table`). |
 
 Anything else — prose, blank lines, deeper headings — is ignored, so a spec
 doubles as documentation.
-
-## Step definitions
-
-```ts
-import { step } from "playwright-md";
-
-// Template form: write the sentence with {} at each argument slot.
-step("transfer {} from {} to {}", ({ args }) => {
-  const [amount, from, to] = args;
-  // ...
-});
-
-// RegExp form: capture groups become args.
-step(/^wait (\d+) seconds$/, async ({ args }) => {
-  await new Promise((r) => setTimeout(r, Number(args[0]) * 1000));
-});
-```
-
-Every step receives one `ctx` object: `{ world, args, table, text, request, page }`.
-
-## Background steps
-
-Steps written after the `#` title but before the first `##` scenario are
-**background** steps — they run before every scenario, so shared setup lives in
-one place:
 
 ```markdown
 # Todo API
@@ -137,77 +171,13 @@ one place:
 ## creates a todo
 * create a todo "Buy milk"
 * the todo list has "1" items
-
-## rejects an empty title
-* create a todo ""
-* the response status is "400"
 ```
-
-## Browser steps
-
-Pure-logic specs never touch a browser. For specs that drive a real page, pass
-`{ browser: true }` and Playwright's `page` arrives as `ctx.page`:
-
-```ts
-import { defineMarkdownSpecs } from "playwright-md";
-import "./steps/todo.steps";
-
-defineMarkdownSpecs(new URL("./browser", import.meta.url).pathname, {
-  browser: true,
-});
-```
-
-```ts
-step("add a todo {}", async ({ page, args }) => {
-  await page!.fill("#new-todo", args[0]);
-  await page!.click("#new-form button");
-});
-```
-
-Browser and non-browser specs live happily in the same suite and run through the
-same command — only the `browser`-flagged ones launch a browser.
-
-## API steps
-
-`ctx.request` is Playwright's HTTP client, always available (no browser). Set a
-`baseURL` in your Playwright config to call relative paths, and — for a
-self-contained suite — point `webServer` at a local mock so tests depend on
-nothing external:
-
-```ts
-// playwright.config.ts
-use: { baseURL: "http://localhost:3210" },
-webServer: {
-  command: "node examples/mock-server/server.mjs",
-  url: "http://localhost:3210/todos",
-},
-```
-
-```ts
-step("create a todo {}", async ({ request, world, args }) => {
-  const res = await request.post("/todos", { data: { title: args[0] } });
-  world.lastStatus = res.status();
-});
-step("the response status is {}", ({ world, args }) => {
-  expect(world.lastStatus).toBe(Number(args[0]));
-});
-```
-
-When a spec's scenarios share one stateful backend and each resets it on entry,
-tell playwright-md not to run them concurrently — otherwise a `fullyParallel`
-config lets their resets race:
-
-```ts
-defineMarkdownSpecs(specsDir, { parallel: false });
-```
-
-See `examples/api` for the full mock-API example.
 
 ## Reports
 
-playwright-md ships a reporter that renders a run the way the specs read —
-grouped by spec, one line per scenario, and, on failure, the exact Markdown step
-that failed plus a link back to the `.md` file and line:
+The bundled reporter renders a run the way the specs read — grouped by spec, one
+line per scenario as it finishes, and on failure the exact Markdown step plus a
+link back to the `.md` file and line:
 
 ```
 Todo API  examples/api/todos.md
@@ -220,19 +190,25 @@ Todo API  examples/api/todos.md
 ✗ 2 passed, 1 failed  (2.4s)
 ```
 
-Enable it in your Playwright config:
+Every generated scenario also carries its `.md` location as a `spec`
+annotation, so the built-in `html` reporter and traces point at the Markdown
+too.
 
-```ts
-reporter: [["playwright-md/reporter"]],
-```
+## Why
 
-Every generated scenario also carries its `.md` location as a `spec` annotation,
-so the built-in `html` reporter and traces point back at the Markdown too.
+[Gauge](https://gauge.org) has a lovely idea: tests as Markdown. But it ships a
+whole runtime — a separate process, a language-runner protocol, plugins, project
+scaffolding. Playwright already has a fast, modern runner with first-class
+fixtures, tracing and tooling. playwright-md keeps the Markdown and drops the
+rest by **compiling specs into Playwright tests** instead of running its own
+engine.
 
-## Status
+The Markdown dialect stays close to Gauge's, so existing specs port with little
+or no editing. The execution model does not: state lives in fixtures rather than
+a global world object, and resource isolation is a scope you declare.
 
-Early proof of concept. The core (parse → generate → bind → run) works; the API
-may still change. Feedback and issues welcome.
+See [docs/execution-model.md](./docs/execution-model.md) for how the generation
+works.
 
 ## License
 
