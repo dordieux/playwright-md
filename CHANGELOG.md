@@ -6,6 +6,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Data-driven scenarios.** A table with no step above it makes a scenario run
+  once per row, with steps reading the columns as `<column>` — the spec's table
+  drives every scenario that refers to it, a table under a `##` drives that one
+  scenario, and both together run each combination. `specInfo(testInfo).row`
+  gives a fixture the row it is running for.
+
+  A table nothing refers to stays documentation. Specs use tables to explain the
+  fixture data they assume, and silently running such a spec once per row is a
+  change that still passes, so only a scenario naming one of the columns is
+  multiplied. This matches Gauge, verified by running both shapes through it.
+
+  A `<column>` no table defines is an error rather than literal text.
+
+### Changed
+
+- A scenario that cannot run — an unmatched step, an unresolved column, a
+  recursive concept — now fails before its first step instead of when execution
+  reaches the bad step, so the steps ahead of it no longer have their effect
+  first.
+
 ## [0.5.0] - 2026-09-23
 
 ### Changed

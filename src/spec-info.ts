@@ -9,6 +9,12 @@ export interface SpecInfo {
   line: number;
   /** The `-- tag` suffix, or null when the scenario has none. */
   tag: string | null;
+  /**
+   * The data table row this run was generated from, or null when the scenario
+   * is not data-driven. Columns from a spec table and a scenario table are
+   * merged, the scenario's winning a name clash.
+   */
+  row: Record<string, string> | null;
 }
 
 /**
@@ -44,5 +50,18 @@ export function specInfo(testInfo: TestInfo): SpecInfo | null {
     line,
     // Playwright tags carry a leading "@"; the spec dialect does not.
     tag: testInfo.tags[0]?.replace(/^@/, "") ?? null,
+    row: readRow(testInfo),
   };
+}
+
+function readRow(testInfo: TestInfo): Record<string, string> | null {
+  const raw = testInfo.annotations.find(
+    (a) => a.type === "spec-row",
+  )?.description;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return null;
+  }
 }

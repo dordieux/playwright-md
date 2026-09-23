@@ -8,7 +8,7 @@ How a Markdown spec becomes Playwright tests, and why it is built this way.
 defineSpecs(dir)
   ├─ for each *.cpt.md: parse `##` headings into concepts (template, params, body)
   └─ for each other .md: parse into a Spec (title, background, scenarios, line numbers)
-      └─ for each scenario:
+      └─ for each scenario, once per data-table row:
           ├─ resolve every step — a concept expands into its body, recursively
           ├─ union the fixtures every reached step destructures
           ├─ build a test body whose parameter names exactly that union
@@ -88,6 +88,23 @@ Concepts take precedence over step definitions, and a step matched by both is
 reported rather than silently resolved — the same rule the step registry applies
 within itself.
 
+## Why a data table only counts when it is referenced
+
+Gauge multiplies a scenario across the rows of a table written above it. Taken
+literally that makes any table in that position load-bearing, and specs use
+tables to *explain themselves* — "these are the fixture rows this spec assumes".
+Silently running such a spec three times is the worst kind of change: it still
+passes.
+
+So a table drives execution only when some step refers to one of its columns,
+which is also what Gauge does in practice — verified by running the two shapes
+through Gauge itself. The check is per scenario, so in one spec the scenario
+that reads a column is multiplied and its neighbour that does not is run once.
+
+The other half of the rule is that `<column>` must resolve: a reference no table
+satisfies is an error, not literal text. Between them, neither a table nor a
+reference can be silently ignored.
+
 ## Why there is no `world`
 
 Gauge-style suites keep per-scenario state in a mutable global that every step
@@ -116,7 +133,8 @@ this path rather than replacing it.
 | Module | Responsibility |
 | --- | --- |
 | `files` | Which `.md` files a target holds, and which of them are concept files. |
-| `parser` | Markdown → `Spec` (scenarios, background, steps, line numbers). Owns the dialect. |
+| `parser` | Markdown → `Spec` (scenarios, background, steps, tables, line numbers). Owns the dialect. |
+| `params` | `<name>` references: which a step makes, and substituting values into one. Shared by concepts and data tables. |
 | `concepts` | Markdown → concepts; binding by template; argument substitution into a body. One registry per `createSpecs`. |
 | `registry` | Step definitions and matching; template `{}` or RegExp; "did you mean" suggestions. One instance per `createSpecs`. |
 | `fixtures` | Reads a callback's destructuring pattern and separates fixtures from step data. |

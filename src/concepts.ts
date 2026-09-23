@@ -1,6 +1,7 @@
 import fs from "node:fs";
+import { referencedParams, substituteStep } from "./params.js";
 import { parseStepLine, parseTable } from "./parser.js";
-import type { Step, Table } from "./types.js";
+import type { Step } from "./types.js";
 
 /**
  * A concept: one named sentence that stands for a sequence of steps.
@@ -33,8 +34,6 @@ export interface ConceptMatch {
 const H2 = /^##\s+(.*)$/;
 const STEP = /^\*\s+(.*)$/;
 const QUOTED = /"([^"]*)"/g;
-/** A parameter reference in a body step, e.g. `<name>`. */
-const PARAM = /<([A-Za-z0-9_-]+)>/g;
 
 /**
  * Parse a concept file, which is shaped like a spec file: `#` is the file's
@@ -152,12 +151,7 @@ function validate(concept: Concept): void {
   }
   const referenced = new Set<string>();
   for (const step of concept.steps) {
-    for (const m of step.text.matchAll(PARAM)) referenced.add(m[1]);
-    for (const row of step.table?.rows ?? []) {
-      for (const value of Object.values(row)) {
-        for (const m of value.matchAll(PARAM)) referenced.add(m[1]);
-      }
-    }
+    for (const name of referencedParams(step)) referenced.add(name);
   }
   const unused = concept.params.filter((p) => !referenced.has(p));
   if (unused.length > 0) {
@@ -230,23 +224,7 @@ export function resolveBodyStep(
   const values = new Map<string, string>();
   params.forEach((p, i) => values.set(p, args[i] ?? ""));
 
-  // Parameters not declared by this concept are left alone, so a body step can
-  // contain angle brackets of its own (`<div>`, `a <b>`) without surprises.
-  const substitute = (text: string): string =>
-    text.replace(PARAM, (whole, name: string) => values.get(name) ?? whole);
-
-  const resolved = parseStepLine(substitute(step.text), step.line);
-  if (step.table) resolved.table = substituteTable(step.table, substitute);
-  return resolved;
-}
-
-function substituteTable(table: Table, substitute: (s: string) => string): Table {
-  return {
-    headers: table.headers,
-    rows: table.rows.map((row) => {
-      const out: Record<string, string> = {};
-      for (const [key, value] of Object.entries(row)) out[key] = substitute(value);
-      return out;
-    }),
-  };
+  // A name this concept does not declare is left as written; resolving the
+  // expanded step is what reports it, with the same message a spec step gets.
+  return substituteStep(step, values);
 }

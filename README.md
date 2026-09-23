@@ -218,6 +218,7 @@ A small, Gauge-flavored subset of Markdown:
 | `* step text with "args"` | A step. Double-quoted substrings are its positional arguments. Only `*` marks a step — `-` bullets are prose. |
 | Steps before the first `##` | Background: they run before every scenario. |
 | A Markdown table indented under a step | The step's data table (`ctx.table`). |
+| A table with no step above it | A data table — see below. |
 
 A file named `*.cpt.md` is a **concept** file rather than a spec: `#` is its
 title and each `##` heading is a concept whose parameters are written `"<name>"`.
@@ -234,6 +235,38 @@ doubles as documentation.
 * create a todo "Buy milk"
 * the todo list has "1" items
 ```
+
+## Data-driven scenarios
+
+A table with no step above it is a **data table**: the scenario runs once per
+row, and steps read the columns with `<column>`.
+
+```markdown
+# Checkout
+
+| item      | qty | total |
+| --------- | --- | ----- |
+| Notebook  | 2   | 800   |
+| Pen       | 5   | 500   |
+
+## the cart totals correctly
+
+* add "<qty>" of "<item>" to the cart
+* the cart total is "<total>"
+```
+
+That scenario becomes two Playwright tests, each titled with its row.
+
+**A table nothing refers to is documentation.** Only a scenario whose steps
+actually name one of the columns is multiplied, so a spec can carry an
+explanatory table — the fixture data it assumes, say — without silently running
+everything five times. A `<column>` that no table defines is an error, raised
+before the scenario's first step runs.
+
+Put the table under a `##` heading instead and it drives that scenario alone.
+With both, the scenario runs once per combination, the scenario's columns
+winning a name clash. `specInfo(testInfo).row` gives a fixture the row it is
+running for.
 
 ## Reports
 

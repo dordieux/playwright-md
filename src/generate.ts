@@ -3,9 +3,10 @@ import path from "node:path";
 import type { TestType } from "@playwright/test";
 import { ConceptRegistry, resolveBodyStep } from "./concepts.js";
 import { partitionMarkdownFiles } from "./files.js";
+import { referencedParams, substituteStep } from "./params.js";
 import { parseMarkdown } from "./parser.js";
 import type { StepRegistry } from "./registry.js";
-import type { Scenario, Step } from "./types.js";
+import type { Scenario, Spec, Step, Table } from "./types.js";
 
 /** Options for `defineSpecs`. */
 export interface DefineOptions {
@@ -71,51 +72,89 @@ export function createDefineSpecs(
         }
 
         for (const scenario of spec.scenarios) {
-          const prepared = prepare(
-            scenario,
-            spec.background,
-            registry,
-            concepts,
-            file,
-          );
-          const details: {
-            tag?: string;
-            annotation: { type: string; description: string };
-          } = {
-            annotation: {
-              type: "spec",
-              description: `${relFile}:${scenario.line}`,
-            },
-          };
-          if (scenario.tag) details.tag = `@${scenario.tag}`;
+          for (const row of dataRows(spec, scenario)) {
+            const steps = [...spec.background, ...scenario.steps].map((step) =>
+              row ? substituteStep(step, row) : step,
+            );
+            const prepared = prepare(scenario, steps, registry, concepts, file);
 
-          // The body is generated with a per-scenario destructuring pattern, so
-          // its shape is not statically known to TypeScript.
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          test(scenario.title, details, buildTestBody(prepared) as any);
+            const details: {
+              tag?: string;
+              annotation: Array<{ type: string; description: string }>;
+            } = {
+              annotation: [
+                { type: "spec", description: `${relFile}:${scenario.line}` },
+              ],
+            };
+            if (scenario.tag) details.tag = `@${scenario.tag}`;
+            if (row) {
+              details.annotation.push({
+                type: "spec-row",
+                description: JSON.stringify(Object.fromEntries(row)),
+              });
+            }
+
+            // The body is generated with a per-scenario destructuring pattern,
+            // so its shape is not statically known to TypeScript.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            test(titleFor(scenario.title, row), details, buildTestBody(prepared) as any);
+          }
         }
       });
     }
   };
 }
 
+/**
+ * The rows a scenario runs for: one `null` when it is not data-driven, and
+ * otherwise one entry per combination of the spec's and the scenario's tables.
+ *
+ * A table drives execution only when a step actually refers to one of its
+ * columns. A table nothing refers to is documentation — which is what lets a
+ * spec carry an explanatory table without silently multiplying its scenarios.
+ */
+export function dataRows(spec: Spec, scenario: Scenario): Array<Map<string, string> | null> {
+  const steps = [...spec.background, ...scenario.steps];
+  const referenced = new Set<string>();
+  for (const step of steps) {
+    for (const name of referencedParams(step)) referenced.add(name);
+  }
+
+  const driving = (table: Table | null): Array<Record<string, string>> | null =>
+    table && table.headers.some((h) => referenced.has(h)) ? table.rows : null;
+
+  const specRows = driving(spec.dataTable);
+  const scenarioRows = driving(scenario.dataTable);
+  if (!specRows && !scenarioRows) return [null];
+
+  // Both tables present is a nested loop: every spec row against every
+  // scenario row. The scenario's columns win a name clash, being the nearer.
+  const out: Array<Map<string, string>> = [];
+  for (const outer of specRows ?? [{}]) {
+    for (const inner of scenarioRows ?? [{}]) {
+      out.push(new Map(Object.entries({ ...outer, ...inner })));
+    }
+  }
+  return out;
+}
+
+/** A scenario's title for one row, kept distinct so reports stay readable. */
+export function titleFor(title: string, row: Map<string, string> | null): string {
+  if (!row || row.size === 0) return title;
+  const values = [...row].map(([k, v]) => `${k}: ${v}`).join(", ");
+  return `${title} [${values}]`;
+}
+
 /** Resolve a scenario's steps and collect the fixtures they ask for. */
 function prepare(
   scenario: Scenario,
-  background: Step[],
+  steps: Step[],
   registry: StepRegistry,
   concepts: ConceptRegistry,
   file: string,
 ): PreparedScenario {
   const fixtures = new Set<string>();
-  const plan = resolveSteps(
-    [...background, ...scenario.steps],
-    file,
-    registry,
-    concepts,
-    fixtures,
-    [],
-  );
+  const plan = resolveSteps(steps, file, registry, concepts, fixtures, []);
   return { scenario, fixtures: [...fixtures].sort(), plan };
 }
 
@@ -146,6 +185,21 @@ export function resolveSteps(
   };
 
   for (const step of steps) {
+    // Anything still written `<name>` after substitution refers to a column no
+    // table provides. Gauge rejects this, and so do we: it is a typo far more
+    // often than it is literal text.
+    const unresolved = [...referencedParams(step)];
+    if (unresolved.length > 0) {
+      fail(
+        step,
+        `${unresolved.map((n) => `<${n}>`).join(", ")} in:\n  "${step.text}"\n` +
+          `  (${relFile}:${step.line})\n` +
+          "  refers to a data table column that is not defined. Add it to the " +
+          "spec's or the scenario's table, or remove the angle brackets.",
+      );
+      continue;
+    }
+
     const concept = concepts.find(step);
 
     let match;
@@ -230,12 +284,30 @@ export function resolveSteps(
 function buildTestBody(
   prepared: PreparedScenario,
 ): (...args: never[]) => Promise<void> {
+  // Everything a plan can report -- an unmatched step, an unresolved column, a
+  // recursive concept -- is known before the run starts, so it is raised before
+  // the first step instead of after the ones ahead of it have had their effect.
+  const failure = firstError(prepared.plan);
+
   const runner = async (fixtures: Record<string, unknown>): Promise<void> => {
+    if (failure) throw new Error(failure);
     await runPlan(prepared.plan, fixtures);
   };
   return wrapperFor(prepared.fixtures)(runner) as (
     ...args: never[]
   ) => Promise<void>;
+}
+
+/** The first thing wrong with a plan, looking inside concepts too. */
+function firstError(plan: PreparedStep[]): string | null {
+  for (const entry of plan) {
+    if (entry.kind === "error") return entry.message;
+    if (entry.kind === "concept") {
+      const deeper = firstError(entry.children);
+      if (deeper) return deeper;
+    }
+  }
+  return null;
 }
 
 /** Where a Markdown step lives, for `test.step`'s `location`. */

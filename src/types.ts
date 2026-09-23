@@ -38,6 +38,13 @@ export interface Scenario {
   /** Optional tag from the `## title -- tag` heading convention. */
   tag: string | null;
   steps: Step[];
+  /**
+   * A table written under the `##` heading before the scenario's first step.
+   *
+   * It drives the scenario only if one of its steps refers to a column with
+   * `<column>`; otherwise it is documentation. See {@link Spec.dataTable}.
+   */
+  dataTable: Table | null;
 }
 
 /** A parsed spec file: one `# heading` plus its scenarios. */
@@ -50,6 +57,15 @@ export interface Spec {
    */
   background: Step[];
   scenarios: Scenario[];
+  /**
+   * A table written before the first step and the first scenario.
+   *
+   * It makes the spec data-driven — every scenario runs once per row — but only
+   * if some step refers to one of its columns with `<column>`. A table nothing
+   * refers to is documentation, which is how a spec can carry an explanatory
+   * table without silently multiplying its scenarios.
+   */
+  dataTable: Table | null;
   /** Absolute path of the source file, for error messages. */
   file: string;
 }

@@ -20,21 +20,40 @@ const QUOTED = /"([^"]*)"/g;
  *   steps, run before every scenario. Only `*` marks a step; `-` bullets are
  *   prose, so explanatory lists are left alone.
  * - A Markdown table indented under a step becomes that step's data table.
+ * - A table with no step above it is a data table: the scenario's if one has
+ *   started, otherwise the spec's. It makes the scenario run once per row, but
+ *   only if a step refers to one of its columns with `<column>`.
  *
  * Everything else (blank lines, prose, headings deeper than `##`) is ignored,
  * so a spec doubles as human-readable documentation.
  */
 export function parseMarkdown(content: string, file = "<memory>"): Spec {
-  const spec: Spec = { title: "", background: [], scenarios: [], file };
+  const spec: Spec = {
+    title: "",
+    background: [],
+    scenarios: [],
+    dataTable: null,
+    file,
+  };
   const lines = content.split(/\r?\n/);
 
   let scenario: Scenario | null = null;
   let step: Step | null = null;
   let tableLines: string[] = [];
 
+  // A table belongs to the step above it. With no step above it, it is a data
+  // table: the scenario's if one has started, otherwise the spec's. Only the
+  // first such table is taken, matching Gauge.
   const flushTable = () => {
-    if (step && tableLines.length > 0) {
-      step.table = parseTable(tableLines);
+    if (tableLines.length > 0) {
+      const table = parseTable(tableLines);
+      if (step) {
+        step.table = table;
+      } else if (scenario) {
+        scenario.dataTable ??= table;
+      } else {
+        spec.dataTable ??= table;
+      }
     }
     tableLines = [];
   };
@@ -70,7 +89,7 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
       continue;
     }
 
-    if (trimmed.startsWith("|") && step) {
+    if (trimmed.startsWith("|")) {
       tableLines.push(trimmed);
       continue;
     }
@@ -86,11 +105,11 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
 function parseScenarioHeading(heading: string, line: number): Scenario {
   const sep = heading.indexOf(" -- ");
   if (sep === -1) {
-    return { line, title: heading, tag: null, steps: [] };
+    return { line, title: heading, tag: null, steps: [], dataTable: null };
   }
   const title = heading.slice(0, sep).trim();
   const tag = heading.slice(sep + 4).trim() || null;
-  return { line, title, tag, steps: [] };
+  return { line, title, tag, steps: [], dataTable: null };
 }
 
 /**
