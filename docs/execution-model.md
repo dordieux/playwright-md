@@ -5,11 +5,9 @@ How a Markdown spec becomes Playwright tests, and why it is built this way.
 ## The shape
 
 ```
-defineConcepts(dir)
-  └─ for each .md file: parse `##` headings into concepts (template, params, body)
-
 defineSpecs(dir)
-  └─ for each .md file: parse into a Spec (title, background, scenarios, line numbers)
+  ├─ for each *.cpt.md: parse `##` headings into concepts (template, params, body)
+  └─ for each other .md: parse into a Spec (title, background, scenarios, line numbers)
       └─ for each scenario:
           ├─ resolve every step — a concept expands into its body, recursively
           ├─ union the fixtures every reached step destructures
@@ -66,6 +64,13 @@ trader" is a sentence in the spec's vocabulary, not a function in the test code.
 Keeping it in Markdown means the vocabulary stays reviewable by the same people
 who review the specs.
 
+That also means adding one should not require touching TypeScript at all, so a
+file's role is carried by its own name — `*.cpt.md` — the way Gauge separates
+`.spec` from `.cpt`. `defineSpecs` walks its tree once and loads the concept
+files before the specs. The alternative, a directory convention, would make a
+file's meaning depend on where it was moved to; `defineConcepts` remains for the
+one case the name cannot express, a concept tree shared by several suites.
+
 Expansion happens while the plan is being built, not while the test runs, which
 is what lets a concept participate in everything else:
 
@@ -110,6 +115,7 @@ this path rather than replacing it.
 
 | Module | Responsibility |
 | --- | --- |
+| `files` | Which `.md` files a target holds, and which of them are concept files. |
 | `parser` | Markdown → `Spec` (scenarios, background, steps, line numbers). Owns the dialect. |
 | `concepts` | Markdown → concepts; binding by template; argument substitution into a body. One registry per `createSpecs`. |
 | `registry` | Step definitions and matching; template `{}` or RegExp; "did you mean" suggestions. One instance per `createSpecs`. |

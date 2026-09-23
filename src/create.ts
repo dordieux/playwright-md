@@ -1,7 +1,6 @@
-import fs from "node:fs";
 import type { TestType } from "@playwright/test";
-import { ConceptRegistry, parseConcepts } from "./concepts.js";
-import { collectSpecFiles } from "./files.js";
+import { ConceptRegistry } from "./concepts.js";
+import { collectMarkdownFiles } from "./files.js";
 import { createDefineSpecs, setStepReporter, type DefineOptions } from "./generate.js";
 import { StepRegistry } from "./registry.js";
 import type { StepData } from "./types.js";
@@ -39,24 +38,16 @@ export interface Specs<F> {
   ): void;
 
   /**
-   * Load concepts: Markdown files whose `#` headings each name a sequence of
-   * steps, so a spec can say one sentence where it would otherwise say five.
+   * Load concept files from somewhere other than the spec tree.
    *
-   * ```markdown
-   * <!-- concepts/login.md -->
-   * # log in as "<user>"
+   * Concepts are normally picked up on their own: `defineSpecs` loads every
+   * `*.cpt.md` it finds, so adding one is a matter of dropping the file in.
+   * Use this only for concepts kept outside that tree — a directory shared by
+   * several suites, say — and call it before `defineSpecs`, since specs are
+   * resolved as they are collected.
    *
-   * * open "/login"
-   * * type "<user>" into "#username"
-   * * click "Sign in"
-   * ```
-   *
-   * ```ts
-   * defineConcepts(new URL("./concepts", import.meta.url).pathname);
-   * defineSpecs(new URL("./specs", import.meta.url).pathname);
-   * ```
-   *
-   * Call this before `defineSpecs`: specs are resolved as they are collected.
+   * Every `.md` file reached this way is read as a concept file, whatever it is
+   * named. Loading the same file twice is a no-op.
    *
    * @param target A `.md` file, a directory (searched recursively), or a list of paths.
    */
@@ -64,6 +55,10 @@ export interface Specs<F> {
 
   /**
    * Discover Markdown specs and register them with Playwright as real tests.
+   *
+   * A `*.cpt.md` file in the tree is a concept file — a sequence of steps a
+   * spec can call by name — and is loaded before the specs that call it. Every
+   * other `.md` file is a spec.
    *
    * @param target A `.md` file, a directory (searched recursively), or a list of paths.
    */
@@ -103,11 +98,7 @@ export function createSpecs<TestArgs extends KeyValue, WorkerArgs extends KeyVal
       registry.add(pattern, fn as (ctx: never) => unknown);
     },
     defineConcepts(target) {
-      for (const file of collectSpecFiles(target)) {
-        for (const concept of parseConcepts(fs.readFileSync(file, "utf8"), file)) {
-          concepts.add(concept);
-        }
-      }
+      for (const file of collectMarkdownFiles(target)) concepts.loadFile(file);
     },
     defineSpecs: createDefineSpecs(test, registry, concepts),
   };

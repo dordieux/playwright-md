@@ -115,11 +115,15 @@ A browser spec repeats itself — log in, navigate, fill the same form. A
 in Markdown, because they are part of the vocabulary a reviewer reads rather
 than part of the test code.
 
+Adding one is dropping a `*.cpt.md` file next to your specs. There is nothing
+to register: `defineSpecs` loads the concept files it finds in the tree before
+the specs that call them.
+
 A concept file is shaped like a spec file: `#` is its title, each `##` heading
 is one concept, and parameters are quoted placeholders.
 
 ```markdown
-<!-- concepts/auth.md -->
+<!-- specs/auth.cpt.md -->
 # Authentication
 
 ## log in as "<user>"
@@ -129,12 +133,7 @@ is one concept, and parameters are quoted placeholders.
 * click "Sign in"
 ```
 
-```ts
-defineConcepts(new URL("./concepts", import.meta.url).pathname);
-defineSpecs(new URL("./specs", import.meta.url).pathname);
-```
-
-The spec now calls it exactly like any other step:
+The spec beside it calls that concept exactly like any other step:
 
 ```markdown
 ## a trader sees their positions
@@ -159,6 +158,14 @@ working through them:
 
 Concepts take precedence over step definitions, so a concept cannot be silently
 shadowed by one.
+
+For concepts kept outside the spec tree — a directory shared by several suites —
+load them explicitly, before `defineSpecs`:
+
+```ts
+defineConcepts(new URL("../shared/concepts", import.meta.url).pathname);
+defineSpecs(new URL("./specs", import.meta.url).pathname);
+```
 
 ## Running against a stateful backend, in parallel
 
@@ -212,8 +219,8 @@ A small, Gauge-flavored subset of Markdown:
 | Steps before the first `##` | Background: they run before every scenario. |
 | A Markdown table indented under a step | The step's data table (`ctx.table`). |
 
-In a **concept** file, `#` is the file title and each `##` heading is a concept
-whose parameters are written `"<name>"`.
+A file named `*.cpt.md` is a **concept** file rather than a spec: `#` is its
+title and each `##` heading is a concept whose parameters are written `"<name>"`.
 
 Anything else — prose, blank lines, deeper headings — is ignored, so a spec
 doubles as documentation.
@@ -278,9 +285,10 @@ one would run depends on registration order, so make the patterns distinct.
 **`declares "<x>" but never uses it`.** A concept's heading takes a parameter its
 body never mentions — usually a typo on one side or the other.
 
-**A concept is not recognized and the step is reported as unmatched.** Call
-`defineConcepts` *before* `defineSpecs`: specs are resolved as they are
-collected, so concepts loaded afterwards are too late.
+**A concept is not recognized and the step is reported as unmatched.** Check the
+file is named `*.cpt.md` and sits inside the tree `defineSpecs` was given. If it
+lives elsewhere, `defineConcepts` has to load it *before* `defineSpecs` — specs
+are resolved as they are collected, so concepts loaded afterwards are too late.
 
 **A `.md` edit is not picked up.** Specs are read when Playwright collects
 tests, so re-running picks up edits with no build step. Playwright's watch and

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { parseStepLine, parseTable } from "./parser.js";
 import type { Step, Table } from "./types.js";
 
@@ -175,6 +176,7 @@ function validate(concept: Concept): void {
  */
 export class ConceptRegistry {
   private readonly concepts: Concept[] = [];
+  private readonly loaded = new Set<string>();
 
   add(concept: Concept): void {
     const duplicate = this.concepts.find((c) => c.template === concept.template);
@@ -186,6 +188,22 @@ export class ConceptRegistry {
       );
     }
     this.concepts.push(concept);
+  }
+
+  /**
+   * Load a concept file, once.
+   *
+   * Concept files are discovered automatically by `defineSpecs` and may also be
+   * pointed at explicitly, and two spec directories may sit under one concept
+   * directory — so the same file reaching here twice is ordinary, and loading it
+   * again would be reported as a duplicate definition.
+   */
+  loadFile(file: string): void {
+    if (this.loaded.has(file)) return;
+    this.loaded.add(file);
+    for (const concept of parseConcepts(fs.readFileSync(file, "utf8"), file)) {
+      this.add(concept);
+    }
   }
 
   /** Find the concept a spec step calls, or null. */

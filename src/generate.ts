@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { TestType } from "@playwright/test";
 import { ConceptRegistry, resolveBodyStep } from "./concepts.js";
-import { collectSpecFiles } from "./files.js";
+import { partitionMarkdownFiles } from "./files.js";
 import { parseMarkdown } from "./parser.js";
 import type { StepRegistry } from "./registry.js";
 import type { Scenario, Step } from "./types.js";
@@ -52,7 +52,13 @@ export function createDefineSpecs(
   concepts: ConceptRegistry,
 ): (target: string | string[], opts?: DefineOptions) => void {
   return function defineSpecs(target, opts = {}) {
-    for (const file of collectSpecFiles(target)) {
+    const files = partitionMarkdownFiles(target);
+
+    // Concepts first: a spec is resolved as it is collected, so a `.cpt.md`
+    // alongside the specs has to be registered before any of them are read.
+    for (const file of files.concepts) concepts.loadFile(file);
+
+    for (const file of files.specs) {
       const spec = parseMarkdown(fs.readFileSync(file, "utf8"), file);
       const suite = spec.title || path.basename(file, ".md");
       const relFile = path.relative(process.cwd(), file);

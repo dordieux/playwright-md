@@ -6,7 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-23
+
+### Changed
+
+- **Concepts are found on their own.** A concept file is now named `*.cpt.md`,
+  the way Gauge separates `.spec` from `.cpt`, and `defineSpecs` loads the ones
+  in its tree before the specs that call them. Adding a concept is dropping a
+  file in — 0.4.0 required a `defineConcepts` call, which was friction Gauge
+  never had. `defineConcepts` remains for concepts kept outside the spec tree,
+  such as a directory shared by several suites, and loading the same file twice
+  is now a no-op rather than a duplicate-definition error.
+
 ## [0.4.0] - 2026-09-23
+
+Tagged and released on GitHub; never published to npm — take 0.5.0 instead.
 
 ### Added
 

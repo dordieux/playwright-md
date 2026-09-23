@@ -17,7 +17,7 @@ The background step opens a fresh page before every scenario.
 
 ## completing a todo decreases the active count
 
-The first two sentences are concepts (see `examples/concepts/todo.md`): each
+The first two sentences are concepts (see `todo.cpt.md`, next to this file): each
 stands for a pair of steps, and the second concept is itself built from two
 others.
 

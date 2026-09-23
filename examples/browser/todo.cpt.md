@@ -8,6 +8,9 @@ A concept file is shaped like a spec file — `#` is its title, and each `##`
 heading is one concept. Parameters are written as quoted placeholders,
 `"<title>"`, so a spec calls a concept exactly the way it calls any other step.
 
+The `.cpt.md` name is what marks this file as concepts rather than a spec. It
+sits next to `todo.md` and needs no registration: `defineSpecs` finds it.
+
 ## add the todos "<first>" and "<second>"
 
 * add a todo "<first>"
