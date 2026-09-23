@@ -63,7 +63,7 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
     const s = line.match(STEP);
     if (s) {
       flushTable();
-      step = parseStep(s[1].trim(), lineNo);
+      step = parseStepLine(s[1].trim(), lineNo);
       // Steps before the first scenario are background; the rest belong to the
       // current scenario.
       (scenario ? scenario.steps : spec.background).push(step);
@@ -93,13 +93,20 @@ function parseScenarioHeading(heading: string, line: number): Scenario {
   return { line, title, tag, steps: [] };
 }
 
-function parseStep(text: string, line: number): Step {
+/**
+ * Parse one step line into a {@link Step}: quoted substrings become `args`, and
+ * the sentence with `{}` at each of their positions becomes the binding key.
+ *
+ * Shared with the concept parser, whose body steps are the same syntax.
+ */
+export function parseStepLine(text: string, line: number): Step {
   const args = [...text.matchAll(QUOTED)].map((m) => m[1]);
   const template = text.replace(QUOTED, "{}").replace(/\s+/g, " ").trim();
   return { line, text, template, args, table: null };
 }
 
-function parseTable(rows: string[]): Table {
+/** Parse the `|`-delimited lines indented under a step into its data table. */
+export function parseTable(rows: string[]): Table {
   const cells = (row: string): string[] =>
     row
       .replace(/^\|/, "")

@@ -1,4 +1,7 @@
+import fs from "node:fs";
 import type { TestType } from "@playwright/test";
+import { ConceptRegistry, parseConcepts } from "./concepts.js";
+import { collectSpecFiles } from "./files.js";
 import { createDefineSpecs, setStepReporter, type DefineOptions } from "./generate.js";
 import { StepRegistry } from "./registry.js";
 import type { StepData } from "./types.js";
@@ -36,6 +39,30 @@ export interface Specs<F> {
   ): void;
 
   /**
+   * Load concepts: Markdown files whose `#` headings each name a sequence of
+   * steps, so a spec can say one sentence where it would otherwise say five.
+   *
+   * ```markdown
+   * <!-- concepts/login.md -->
+   * # log in as "<user>"
+   *
+   * * open "/login"
+   * * type "<user>" into "#username"
+   * * click "Sign in"
+   * ```
+   *
+   * ```ts
+   * defineConcepts(new URL("./concepts", import.meta.url).pathname);
+   * defineSpecs(new URL("./specs", import.meta.url).pathname);
+   * ```
+   *
+   * Call this before `defineSpecs`: specs are resolved as they are collected.
+   *
+   * @param target A `.md` file, a directory (searched recursively), or a list of paths.
+   */
+  defineConcepts(target: string | string[]): void;
+
+  /**
    * Discover Markdown specs and register them with Playwright as real tests.
    *
    * @param target A `.md` file, a directory (searched recursively), or a list of paths.
@@ -66,6 +93,7 @@ export function createSpecs<TestArgs extends KeyValue, WorkerArgs extends KeyVal
   test: TestType<TestArgs, WorkerArgs>,
 ): Specs<TestArgs & WorkerArgs> {
   const registry = new StepRegistry();
+  const concepts = new ConceptRegistry();
 
   // Steps are reported through the same `test` the suite is generated from.
   setStepReporter((title, body, location) => test.step(title, body, { location }));
@@ -74,6 +102,13 @@ export function createSpecs<TestArgs extends KeyValue, WorkerArgs extends KeyVal
     step(pattern, fn) {
       registry.add(pattern, fn as (ctx: never) => unknown);
     },
-    defineSpecs: createDefineSpecs(test, registry),
+    defineConcepts(target) {
+      for (const file of collectSpecFiles(target)) {
+        for (const concept of parseConcepts(fs.readFileSync(file, "utf8"), file)) {
+          concepts.add(concept);
+        }
+      }
+    },
+    defineSpecs: createDefineSpecs(test, registry, concepts),
   };
 }

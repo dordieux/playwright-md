@@ -6,6 +6,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-23
+
+### Added
+
+- **Concepts**: a Markdown file whose `##` headings each name a sequence of
+  steps, so a spec can say one sentence where it would otherwise say five. Load
+  them with `defineConcepts(dir)` before `defineSpecs`. Parameters are written
+  as quoted placeholders (`## log in as "<user>"`), so a concept is called
+  exactly like any other step.
+
+  Concepts compose, and are expanded while tests are collected, so the rest of
+  the model keeps working through them: fixtures are unioned over the whole
+  expanded tree (a scenario whose only step is a concept still starts a browser
+  when a step inside it asks for `page`), a concept becomes a parent
+  `test.step` whose children are its body, and a failure inside one points at
+  the concept file and line with the arguments substituted.
+
+  Loading a concept file reports a parameter the body never uses, a literal
+  quoted value in a heading, and a concept defined twice. Resolving a spec
+  reports a recursive concept with the chain that closed the loop, and a
+  sentence matched by both a concept and a step definition.
+
+### Fixed
+
+- The bundled reporter now prints errors that happen outside a test. A spec or
+  concept file that failed to load previously produced a bare "0 passed" with
+  no indication of why.
+
 ## [0.3.2] - 2026-09-20
 
 ### Added

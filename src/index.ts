@@ -1,3 +1,5 @@
+export { parseConcepts } from "./concepts.js";
+export type { Concept } from "./concepts.js";
 export { createSpecs } from "./create.js";
 export type { Specs, StepContext } from "./create.js";
 export type { DefineOptions } from "./generate.js";

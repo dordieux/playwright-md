@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { TestType } from "@playwright/test";
+import { ConceptRegistry, resolveBodyStep } from "./concepts.js";
 import { collectSpecFiles } from "./files.js";
 import { parseMarkdown } from "./parser.js";
 import type { StepRegistry } from "./registry.js";
@@ -28,9 +29,14 @@ interface PreparedScenario {
   plan: PreparedStep[];
 }
 
-type PreparedStep =
-  | { step: Step; run: (ctx: never) => unknown; args: string[] }
-  | { step: Step; unmatched: string };
+/**
+ * A resolved step. A concept holds its expanded body, so the plan is a tree:
+ * concepts nest, and so do the `test.step`s they produce.
+ */
+export type PreparedStep =
+  | { kind: "step"; step: Step; file: string; run: (ctx: never) => unknown; args: string[] }
+  | { kind: "concept"; step: Step; file: string; children: PreparedStep[] }
+  | { kind: "error"; step: Step; file: string; message: string };
 
 /**
  * Build `defineSpecs` for a registry and a Playwright `test`.
@@ -43,6 +49,7 @@ export function createDefineSpecs(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   test: TestType<Record<string, any>, Record<string, any>>,
   registry: StepRegistry,
+  concepts: ConceptRegistry,
 ): (target: string | string[], opts?: DefineOptions) => void {
   return function defineSpecs(target, opts = {}) {
     for (const file of collectSpecFiles(target)) {
@@ -58,7 +65,13 @@ export function createDefineSpecs(
         }
 
         for (const scenario of spec.scenarios) {
-          const prepared = prepare(scenario, spec.background, registry, relFile);
+          const prepared = prepare(
+            scenario,
+            spec.background,
+            registry,
+            concepts,
+            file,
+          );
           const details: {
             tag?: string;
             annotation: { type: string; description: string };
@@ -73,7 +86,7 @@ export function createDefineSpecs(
           // The body is generated with a per-scenario destructuring pattern, so
           // its shape is not statically known to TypeScript.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          test(scenario.title, details, buildTestBody(prepared, file) as any);
+          test(scenario.title, details, buildTestBody(prepared) as any);
         }
       });
     }
@@ -85,40 +98,118 @@ function prepare(
   scenario: Scenario,
   background: Step[],
   registry: StepRegistry,
-  relFile: string,
+  concepts: ConceptRegistry,
+  file: string,
 ): PreparedScenario {
-  const steps = [...background, ...scenario.steps];
   const fixtures = new Set<string>();
+  const plan = resolveSteps(
+    [...background, ...scenario.steps],
+    file,
+    registry,
+    concepts,
+    fixtures,
+    [],
+  );
+  return { scenario, fixtures: [...fixtures].sort(), plan };
+}
+
+/**
+ * Resolve a list of steps against the concepts and the step definitions,
+ * expanding concepts recursively.
+ *
+ * Concepts win over step definitions when both could match, and a step matched
+ * by both is reported rather than silently resolved — the same rule the step
+ * registry applies within itself. `stack` carries the concept templates
+ * currently being expanded, so a cycle is caught instead of recursing forever.
+ */
+export function resolveSteps(
+  steps: Step[],
+  file: string,
+  registry: StepRegistry,
+  concepts: ConceptRegistry,
+  fixtures: Set<string>,
+  stack: string[],
+): PreparedStep[] {
+  const relFile = path.relative(process.cwd(), file);
   const plan: PreparedStep[] = [];
 
+  const fail = (step: Step, message: string): void => {
+    // Reported as a failing scenario rather than by crashing collection, so the
+    // rest of the suite still runs.
+    plan.push({ kind: "error", step, file, message });
+  };
+
   for (const step of steps) {
+    const concept = concepts.find(step);
+
     let match;
     try {
       match = registry.find(step);
     } catch (err) {
-      // Ambiguous definitions: report it as a failing scenario rather than
-      // crashing collection, so the rest of the suite still runs.
-      plan.push({
+      fail(step, `${(err as Error).message}\n  (${relFile}:${step.line})`);
+      continue;
+    }
+
+    if (concept && match) {
+      fail(
         step,
-        unmatched: `${(err as Error).message}\n  (${relFile}:${step.line})`,
+        `"${step.text}" matches both a concept (${concept.concept.file}:${concept.concept.line}) ` +
+          `and a step definition.\n  (${relFile}:${step.line})\n` +
+          "  Which one runs would be arbitrary; make them distinct.",
+      );
+      continue;
+    }
+
+    if (concept) {
+      if (stack.includes(concept.concept.template)) {
+        fail(
+          step,
+          `the concept "${concept.concept.text}" is recursive:\n  ` +
+            [...stack, concept.concept.template].join("\n  → ") +
+            `\n  (${concept.concept.file}:${concept.concept.line})`,
+        );
+        continue;
+      }
+      const body = concept.concept.steps.map((s) =>
+        resolveBodyStep(s, concept.concept.params, concept.args),
+      );
+      plan.push({
+        kind: "concept",
+        step,
+        file,
+        children: resolveSteps(
+          body,
+          concept.concept.file,
+          registry,
+          concepts,
+          fixtures,
+          [...stack, concept.concept.template],
+        ),
       });
       continue;
     }
+
     if (!match) {
       const hint = registry.suggest(step.template);
-      plan.push({
+      fail(
         step,
-        unmatched:
-          `No step definition matches:\n  "${step.text}"\n  (${relFile}:${step.line})` +
+        `No step definition matches:\n  "${step.text}"\n  (${relFile}:${step.line})` +
           (hint ? `\n  Did you mean: "${hint}"?` : ""),
-      });
+      );
       continue;
     }
+
     for (const name of match.definition.fixtures) fixtures.add(name);
-    plan.push({ step, run: match.definition.fn, args: match.args });
+    plan.push({
+      kind: "step",
+      step,
+      file,
+      run: match.definition.fn,
+      args: match.args,
+    });
   }
 
-  return { scenario, fixtures: [...fixtures].sort(), plan };
+  return plan;
 }
 
 /**
@@ -132,15 +223,9 @@ function prepare(
  */
 function buildTestBody(
   prepared: PreparedScenario,
-  file: string,
 ): (...args: never[]) => Promise<void> {
   const runner = async (fixtures: Record<string, unknown>): Promise<void> => {
-    for (const entry of prepared.plan) {
-      if ("unmatched" in entry) {
-        throw new Error(entry.unmatched);
-      }
-      await stepRunner(entry, fixtures, file);
-    }
+    await runPlan(prepared.plan, fixtures);
   };
   return wrapperFor(prepared.fixtures)(runner) as (
     ...args: never[]
@@ -172,22 +257,40 @@ export function setStepReporter(
   reportStep = fn;
 }
 
-async function stepRunner(
-  entry: Extract<PreparedStep, { run: unknown }>,
+async function runPlan(
+  plan: PreparedStep[],
   fixtures: Record<string, unknown>,
-  file: string,
 ): Promise<void> {
-  // Point the step at its own line in the Markdown, so reports and the trace
-  // viewer link to the step rather than to this generator.
-  const location = { file, line: entry.step.line, column: 1 };
-  await reportStep(entry.step.text, async () => {
-    await (entry.run as (ctx: unknown) => unknown)({
-      ...fixtures,
-      args: entry.args,
-      table: entry.step.table,
-      text: entry.step.text,
-    });
-  }, location);
+  for (const entry of plan) {
+    if (entry.kind === "error") throw new Error(entry.message);
+
+    // Point each step at its own line in the Markdown, so reports and the trace
+    // viewer link to the step rather than to this generator. For a concept, the
+    // outer step is the call site and its children are in the concept file.
+    const location = { file: entry.file, line: entry.step.line, column: 1 };
+
+    if (entry.kind === "concept") {
+      await reportStep(
+        entry.step.text,
+        () => runPlan(entry.children, fixtures),
+        location,
+      );
+      continue;
+    }
+
+    await reportStep(
+      entry.step.text,
+      async () => {
+        await (entry.run as (ctx: unknown) => unknown)({
+          ...fixtures,
+          args: entry.args,
+          table: entry.step.table,
+          text: entry.step.text,
+        });
+      },
+      location,
+    );
+  }
 }
 
 type Wrapper = (

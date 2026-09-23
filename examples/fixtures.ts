@@ -16,4 +16,4 @@ export const test = base.extend<{ total: { value: number }; lastStatus: { code: 
   },
 });
 
-export const { step, defineSpecs } = createSpecs(test);
+export const { step, defineConcepts, defineSpecs } = createSpecs(test);

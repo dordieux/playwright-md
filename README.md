@@ -108,6 +108,58 @@ Steps can also be registered with a RegExp, whose capture groups become `args`:
 step(/^wait (\d+) seconds$/, async ({ args }) => { ... });
 ```
 
+## Concepts: one sentence for a sequence of steps
+
+A browser spec repeats itself — log in, navigate, fill the same form. A
+**concept** gives that sequence a name the spec can say instead. Concepts live
+in Markdown, because they are part of the vocabulary a reviewer reads rather
+than part of the test code.
+
+A concept file is shaped like a spec file: `#` is its title, each `##` heading
+is one concept, and parameters are quoted placeholders.
+
+```markdown
+<!-- concepts/auth.md -->
+# Authentication
+
+## log in as "<user>"
+
+* open "/login"
+* type "<user>" into "#username"
+* click "Sign in"
+```
+
+```ts
+defineConcepts(new URL("./concepts", import.meta.url).pathname);
+defineSpecs(new URL("./specs", import.meta.url).pathname);
+```
+
+The spec now calls it exactly like any other step:
+
+```markdown
+## a trader sees their positions
+
+* log in as "trader@example.com"
+* the page shows "Positions"
+```
+
+Concepts compose — a concept's body may call another concept — and they are
+resolved while Playwright collects tests, which is what keeps everything else
+working through them:
+
+- **Fixtures still follow use.** A scenario whose only step is a concept starts
+  a browser when a step *inside* that concept asks for `page`, and not otherwise.
+- **Reports nest.** A concept is a parent step whose children are its body, so a
+  failure points at the line inside the concept file, with the arguments already
+  substituted.
+- **Mistakes are caught early.** A parameter the body never uses, a literal
+  quoted value in a heading, a concept defined twice, a recursive concept, and a
+  sentence matched by both a concept and a step definition are all reported when
+  the file is loaded.
+
+Concepts take precedence over step definitions, so a concept cannot be silently
+shadowed by one.
+
 ## Running against a stateful backend, in parallel
 
 This is what fixtures buy you. Scenarios that share one database cannot run
@@ -159,6 +211,9 @@ A small, Gauge-flavored subset of Markdown:
 | `* step text with "args"` | A step. Double-quoted substrings are its positional arguments. Only `*` marks a step — `-` bullets are prose. |
 | Steps before the first `##` | Background: they run before every scenario. |
 | A Markdown table indented under a step | The step's data table (`ctx.table`). |
+
+In a **concept** file, `#` is the file title and each `##` heading is a concept
+whose parameters are written `"<name>"`.
 
 Anything else — prose, blank lines, deeper headings — is ignored, so a spec
 doubles as documentation.
@@ -219,6 +274,13 @@ of them could never run. Remove or rename one.
 **`"..." matches 2 step definitions`.** A spec step matches more than one
 pattern — typically a literal template and a RegExp that both cover it. Which
 one would run depends on registration order, so make the patterns distinct.
+
+**`declares "<x>" but never uses it`.** A concept's heading takes a parameter its
+body never mentions — usually a typo on one side or the other.
+
+**A concept is not recognized and the step is reported as unmatched.** Call
+`defineConcepts` *before* `defineSpecs`: specs are resolved as they are
+collected, so concepts loaded afterwards are too late.
 
 **A `.md` edit is not picked up.** Specs are read when Playwright collects
 tests, so re-running picks up edits with no build step. Playwright's watch and
