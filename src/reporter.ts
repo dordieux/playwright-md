@@ -3,6 +3,7 @@ import type {
   FullResult,
   Reporter,
   TestCase,
+  TestError,
   TestResult,
   TestStep,
 } from "@playwright/test/reporter";
@@ -47,11 +48,29 @@ interface Row {
  */
 export default class MarkdownReporter implements Reporter {
   private rows: Row[] = [];
+  private errors: TestError[] = [];
   private startedAt = 0;
   private lastFile = "";
 
   onBegin(): void {
     this.startedAt = Date.now();
+  }
+
+  /**
+   * An error outside any test — most often a spec or concept file that failed
+   * to load, which happens while Playwright is still collecting tests. Without
+   * this the run would report "0 passed" and say nothing about why.
+   */
+  onError(error: TestError): void {
+    this.errors.push(error);
+    const where = error.location
+      ? `${path.relative(process.cwd(), error.location.file)}:${error.location.line}`
+      : undefined;
+    process.stdout.write(`\n${red("✗")} ${bold("Error")}\n`);
+    if (where) process.stdout.write(`      ${cyan(where)}\n`);
+    for (const line of stripAnsi(error.message ?? String(error)).split("\n")) {
+      process.stdout.write(`      ${line}\n`);
+    }
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
@@ -136,6 +155,11 @@ export default class MarkdownReporter implements Reporter {
     const parts = [green(`${passed} passed`)];
     if (failures.length) parts.push(red(`${failures.length} failed`));
     if (skipped) parts.push(yellow(`${skipped} skipped`));
+    if (this.errors.length) {
+      parts.push(
+        red(`${this.errors.length} error${this.errors.length > 1 ? "s" : ""}`),
+      );
+    }
     const verdict = result.status === "passed" ? green("✓") : red("✗");
     process.stdout.write(
       `\n${verdict} ${parts.join(dim(", "))}  ${dim(`(${secs}s)`)}\n`,
