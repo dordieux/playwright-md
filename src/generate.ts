@@ -6,6 +6,7 @@ import { partitionMarkdownFiles } from "./files.js";
 import { referencedParams, substituteStep } from "./params.js";
 import { parseMarkdown } from "./parser.js";
 import type { StepRegistry } from "./registry.js";
+import { resolveSpecialParams } from "./special-params.js";
 import type { Scenario, Spec, Step, Table } from "./types.js";
 
 /** Options for `defineSpecs`. */
@@ -220,7 +221,17 @@ export function resolveSteps(
     plan.push({ kind: "error", step, file, message });
   };
 
-  for (const step of steps) {
+  for (const raw of steps) {
+    // `<file:…>` and `<table:…>` are read from disk first: the file's contents
+    // become an argument, so the step binds as if it had been written out.
+    let step: Step;
+    try {
+      step = resolveSpecialParams(raw, file);
+    } catch (err) {
+      fail(raw, (err as Error).message);
+      continue;
+    }
+
     // Anything still written `<name>` after substitution refers to a column no
     // table provides. Gauge rejects this, and so do we: it is a typo far more
     // often than it is literal text.

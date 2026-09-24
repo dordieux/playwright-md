@@ -21,6 +21,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   A `<column>` no table defines is an error rather than literal text.
 
+- **`<file:…>` and `<table:…>` parameters.** `<file:path>` becomes a positional
+  argument holding the file's contents; `<table:path.csv>` becomes the step's
+  data table, the role an indented table already plays, so it adds no argument.
+  Paths are relative to the spec file rather than to a project root, which keeps
+  a spec and its data movable together. A missing file, or a step that would end
+  up with two tables, is reported against the step.
+
 - **`Tags:` lines.** Gauge's tag syntax: under the `#` heading they tag every
   scenario in the spec, under a `##` they tag that scenario. All of them become
   Playwright tags, so `--grep` / `--grep-invert` filter on them. The ` -- tag`

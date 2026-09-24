@@ -25,3 +25,12 @@ step("the total count is {}", async ({ page, args }) => {
 step("the active count is {}", async ({ page, args }) => {
   await expect(page.locator("#active")).toHaveText(args[0]);
 });
+
+// `<table:…>` reads a CSV file into the step's data table, exactly as an
+// indented Markdown table would.
+step("add every todo", async ({ page, table }) => {
+  for (const row of table!.rows) {
+    await page.fill("#new-todo", row.title);
+    await page.click("#new-form button");
+  }
+});

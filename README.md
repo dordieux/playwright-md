@@ -238,6 +238,24 @@ doubles as documentation.
 * the todo list has "1" items
 ```
 
+## Reading arguments from files
+
+A long argument does not have to sit in the sentence.
+
+```markdown
+* the request body is <file:fixtures/order.json>
+* seed the traders <table:fixtures/traders.csv>
+```
+
+`<file:…>` becomes a positional argument holding the file's contents, so the
+step binds to it as it would to any quoted argument (`step("the request body is
+{}", …)`). `<table:…>` reads a CSV into the step's data table — the same role an
+indented Markdown table plays — so it contributes no argument.
+
+Paths are relative to the spec file, which keeps a spec and the data it names
+movable together. (Gauge resolves them from the project root.) The sentence in
+reports keeps the reference rather than the contents.
+
 ## Tags
 
 A `Tags:` line tags the spec or the scenario it sits under, and spec tags are

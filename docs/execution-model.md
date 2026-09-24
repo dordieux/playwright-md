@@ -146,6 +146,7 @@ this path rather than replacing it.
 | --- | --- |
 | `files` | Which `.md` files a target holds, and which of them are concept files. |
 | `parser` | Markdown → `Spec` (scenarios, background, steps, tables, line numbers). Owns the dialect. |
+| `special-params` | `<file:…>` and `<table:…>`: reading them from disk, and parsing CSV. |
 | `params` | `<name>` references: which a step makes, and substituting values into one. Shared by concepts and data tables. |
 | `concepts` | Markdown → concepts; binding by template; argument substitution into a body. One registry per `createSpecs`. |
 | `registry` | Step definitions and matching; template `{}` or RegExp; "did you mean" suggestions. One instance per `createSpecs`. |
