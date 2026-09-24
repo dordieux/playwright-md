@@ -21,6 +21,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   A `<column>` no table defines is an error rather than literal text.
 
+- **`Tags:` lines.** Gauge's tag syntax: under the `#` heading they tag every
+  scenario in the spec, under a `##` they tag that scenario. All of them become
+  Playwright tags, so `--grep` / `--grep-invert` filter on them. The ` -- tag`
+  heading suffix is now one tag among these, but stays separately readable as
+  `specInfo(testInfo).tag`, so suites that name fixture directories after it are
+  unaffected; `specInfo(testInfo).tags` gives the full list.
+
 - **Teardown steps.** The steps after a `___` line at the end of a spec run
   after every scenario, including one that failed. A teardown failure is
   reported only when the scenario itself passed, so a broken cleanup cannot

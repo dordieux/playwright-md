@@ -215,6 +215,7 @@ A small, Gauge-flavored subset of Markdown:
 | --- | --- |
 | `# Title` | Spec title (the Playwright `describe` block). |
 | `## Scenario -- tag` | A scenario. The optional ` -- tag` becomes a Playwright tag (`@tag`). |
+| `Tags: a, b` | Tags. Under `#` they apply to every scenario in the spec; under `##`, to that scenario. |
 | `* step text with "args"` | A step. Double-quoted substrings are its positional arguments. Only `*` marks a step — `-` bullets are prose. |
 | Steps before the first `##` | Background: they run before every scenario. |
 | A Markdown table indented under a step | The step's data table (`ctx.table`). |
@@ -236,6 +237,34 @@ doubles as documentation.
 * create a todo "Buy milk"
 * the todo list has "1" items
 ```
+
+## Tags
+
+A `Tags:` line tags the spec or the scenario it sits under, and spec tags are
+inherited by every scenario in it.
+
+```markdown
+# Checkout
+Tags: browser, slow
+
+## a card payment succeeds -- happy-path
+Tags: smoke
+
+* pay with "4242 4242 4242 4242"
+```
+
+That scenario carries `@browser`, `@slow`, `@smoke` and `@happy-path`, so
+Playwright's own filtering applies:
+
+```bash
+npx playwright test --grep @smoke
+npx playwright test --grep-invert @slow
+npx playwright test --grep "(?=.*@browser)(?=.*@smoke)"   # both
+```
+
+The ` -- tag` heading suffix is a tag too, and stays separately available as
+`specInfo(testInfo).tag` — suites that name fixture directories after it are
+unaffected by any `Tags:` line. `specInfo(testInfo).tags` gives all of them.
 
 ## Teardown
 

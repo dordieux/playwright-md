@@ -37,6 +37,8 @@ export interface Scenario {
   title: string;
   /** Optional tag from the `## title -- tag` heading convention. */
   tag: string | null;
+  /** Tags from this scenario's own `Tags:` line. */
+  tags: string[];
   steps: Step[];
   /**
    * A table written under the `##` heading before the scenario's first step.
@@ -63,6 +65,11 @@ export interface Spec {
    * can put its cleanup where a reader will look for it.
    */
   teardown: Step[];
+  /**
+   * Tags from the spec's `Tags:` line. Every scenario carries them in addition
+   * to its own, the way Gauge inherits spec tags.
+   */
+  tags: string[];
   /**
    * A table written before the first step and the first scenario.
    *

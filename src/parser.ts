@@ -7,6 +7,8 @@ const H2 = /^##\s+(.*)$/;
 const STEP = /^\*\s+(.*)$/;
 // Everything after this line is teardown, as in Gauge.
 const TEARDOWN = /^_{3,}\s*$/;
+// Gauge's tag syntax: a `Tags:` line under the spec or scenario heading.
+const TAGS = /^Tags\s*:(.*)$/i;
 const QUOTED = /"([^"]*)"/g;
 
 /**
@@ -27,6 +29,8 @@ const QUOTED = /"([^"]*)"/g;
  *   only if a step refers to one of its columns with `<column>`.
  * - `___` ends the last scenario; the steps after it are teardown, run after
  *   every scenario including a failing one.
+ * - `Tags: a, b` under the `#` heading tags every scenario in the spec; under a
+ *   `##` heading it tags that scenario. Both become Playwright tags.
  *
  * Everything else (blank lines, prose, headings deeper than `##`) is ignored,
  * so a spec doubles as human-readable documentation.
@@ -37,6 +41,7 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
     background: [],
     scenarios: [],
     teardown: [],
+    tags: [],
     dataTable: null,
     file,
   };
@@ -99,6 +104,15 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
       continue;
     }
 
+    const tags = trimmed.match(TAGS);
+    if (tags) {
+      flushTable();
+      // Before the first scenario the tags are the spec's, and every scenario
+      // inherits them; after a `##` they belong to that scenario.
+      (scenario ? scenario.tags : spec.tags).push(...parseTags(tags[1]));
+      continue;
+    }
+
     const s = line.match(STEP);
     if (s) {
       flushTable();
@@ -129,12 +143,23 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
 
 function parseScenarioHeading(heading: string, line: number): Scenario {
   const sep = heading.indexOf(" -- ");
+  const base = { line, steps: [], tags: [], dataTable: null };
   if (sep === -1) {
-    return { line, title: heading, tag: null, steps: [], dataTable: null };
+    return { ...base, title: heading, tag: null };
   }
-  const title = heading.slice(0, sep).trim();
-  const tag = heading.slice(sep + 4).trim() || null;
-  return { line, title, tag, steps: [], dataTable: null };
+  return {
+    ...base,
+    title: heading.slice(0, sep).trim(),
+    tag: heading.slice(sep + 4).trim() || null,
+  };
+}
+
+/** A `Tags:` line's comma-separated values. */
+function parseTags(list: string): string[] {
+  return list
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t !== "");
 }
 
 /**

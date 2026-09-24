@@ -7,8 +7,13 @@ export interface SpecInfo {
   file: string;
   /** 1-based line of the scenario's `##` heading. */
   line: number;
-  /** The `-- tag` suffix, or null when the scenario has none. */
+  /** The `-- tag` heading suffix, or null when the scenario has none. */
   tag: string | null;
+  /**
+   * Every tag the scenario carries, without the leading `@`: the spec's
+   * `Tags:`, the scenario's own, and the `-- tag` suffix.
+   */
+  tags: string[];
   /**
    * The data table row this run was generated from, or null when the scenario
    * is not data-driven. Columns from a spec table and a scenario table are
@@ -48,8 +53,11 @@ export function specInfo(testInfo: TestInfo): SpecInfo | null {
   return {
     file: path.resolve(process.cwd(), description.slice(0, sep)),
     line,
+    tag:
+      testInfo.annotations.find((a) => a.type === "spec-tag")?.description ??
+      null,
     // Playwright tags carry a leading "@"; the spec dialect does not.
-    tag: testInfo.tags[0]?.replace(/^@/, "") ?? null,
+    tags: testInfo.tags.map((t) => t.replace(/^@/, "")),
     row: readRow(testInfo),
   };
 }

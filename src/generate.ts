@@ -87,14 +87,31 @@ export function createDefineSpecs(
             );
 
             const details: {
-              tag?: string;
+              tag?: string[];
               annotation: Array<{ type: string; description: string }>;
             } = {
               annotation: [
                 { type: "spec", description: `${relFile}:${scenario.line}` },
               ],
             };
-            if (scenario.tag) details.tag = `@${scenario.tag}`;
+
+            // Spec tags are inherited by every scenario, as in Gauge; the
+            // `-- tag` heading suffix is a tag too, and is recorded separately
+            // so `specInfo().tag` keeps meaning that one thing.
+            const tags = [
+              ...spec.tags,
+              ...scenario.tags,
+              ...(scenario.tag ? [scenario.tag] : []),
+            ];
+            if (tags.length > 0) {
+              details.tag = [...new Set(tags)].map((t) => `@${t}`);
+            }
+            if (scenario.tag) {
+              details.annotation.push({
+                type: "spec-tag",
+                description: scenario.tag,
+              });
+            }
             if (row) {
               details.annotation.push({
                 type: "spec-row",
