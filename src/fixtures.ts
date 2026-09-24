@@ -29,12 +29,16 @@ export function requestedFixtures(fn: (...args: never[]) => unknown): string[] {
 /**
  * Parse the names bound by the first parameter's object pattern.
  *
- * Throws when the parameter is not an object pattern, mirroring Playwright's
- * own constraint ("First argument must use the object destructuring pattern"),
- * because without a pattern there is no way to know what the step needs.
+ * A callback that takes no parameter at all asks for nothing, the way a
+ * Playwright test with no parameter does. Anything else must be an object
+ * pattern, mirroring Playwright's own constraint ("First argument must use the
+ * object destructuring pattern"): without a pattern there is no way to know
+ * what the step needs.
  */
 export function destructuredNames(fn: (...args: never[]) => unknown): string[] {
   const source = fn.toString();
+  if (takesNoParameter(source)) return [];
+
   const pattern = objectPatternSource(source);
   if (pattern === null) {
     throw new Error(
@@ -61,6 +65,15 @@ export function destructuredNames(fn: (...args: never[]) => unknown): string[] {
     if (name !== "") names.push(name);
   }
   return names;
+}
+
+/** Whether the callback's parameter list is empty. */
+function takesNoParameter(source: string): boolean {
+  const open = source.indexOf("(");
+  if (open === -1) return false;
+  let i = open + 1;
+  while (i < source.length && /\s/.test(source[i])) i++;
+  return source[i] === ")";
 }
 
 /** The text between the braces of the first parameter's object pattern. */

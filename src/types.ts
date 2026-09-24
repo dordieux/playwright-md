@@ -58,6 +58,12 @@ export interface Spec {
   background: Step[];
   scenarios: Scenario[];
   /**
+   * Teardown steps: the steps written after a `___` line at the end of the
+   * spec. They run after every scenario, including one that failed, so a spec
+   * can put its cleanup where a reader will look for it.
+   */
+  teardown: Step[];
+  /**
    * A table written before the first step and the first scenario.
    *
    * It makes the spec data-driven — every scenario runs once per row — but only

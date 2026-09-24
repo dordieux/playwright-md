@@ -219,6 +219,7 @@ A small, Gauge-flavored subset of Markdown:
 | Steps before the first `##` | Background: they run before every scenario. |
 | A Markdown table indented under a step | The step's data table (`ctx.table`). |
 | A table with no step above it | A data table — see below. |
+| `___` then steps | Teardown: they run after every scenario, failing ones included. |
 
 A file named `*.cpt.md` is a **concept** file rather than a spec: `#` is its
 title and each `##` heading is a concept whose parameters are written `"<name>"`.
@@ -235,6 +236,29 @@ doubles as documentation.
 * create a todo "Buy milk"
 * the todo list has "1" items
 ```
+
+## Teardown
+
+Steps after a `___` line at the end of a spec run after every scenario —
+including one that failed, so cleanup is not skipped by the failure it needs to
+clean up after.
+
+```markdown
+## a trader can place an order
+
+* place an order for "100" MW
+
+___
+
+* cancel every open order
+```
+
+If a teardown step fails it is reported, unless the scenario already failed —
+then the scenario's own error is what you see, rather than the damage it caused.
+
+Most suites will not need this: a fixture's code after `use()` already runs on
+failure, with real scoping. Teardown steps are for cleanup a spec's *reader*
+should see.
 
 ## Data-driven scenarios
 

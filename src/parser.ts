@@ -5,6 +5,8 @@ const H2 = /^##\s+(.*)$/;
 // Steps are asterisk bullets only. A `-` bullet is prose, so a spec can carry
 // explanatory bullet lists without them being mistaken for steps.
 const STEP = /^\*\s+(.*)$/;
+// Everything after this line is teardown, as in Gauge.
+const TEARDOWN = /^_{3,}\s*$/;
 const QUOTED = /"([^"]*)"/g;
 
 /**
@@ -23,6 +25,8 @@ const QUOTED = /"([^"]*)"/g;
  * - A table with no step above it is a data table: the scenario's if one has
  *   started, otherwise the spec's. It makes the scenario run once per row, but
  *   only if a step refers to one of its columns with `<column>`.
+ * - `___` ends the last scenario; the steps after it are teardown, run after
+ *   every scenario including a failing one.
  *
  * Everything else (blank lines, prose, headings deeper than `##`) is ignored,
  * so a spec doubles as human-readable documentation.
@@ -32,6 +36,7 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
     title: "",
     background: [],
     scenarios: [],
+    teardown: [],
     dataTable: null,
     file,
   };
@@ -39,6 +44,7 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
 
   let scenario: Scenario | null = null;
   let step: Step | null = null;
+  let inTeardown = false;
   let tableLines: string[] = [];
 
   // A table belongs to the step above it. With no step above it, it is a data
@@ -70,9 +76,23 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
       continue;
     }
 
+    if (TEARDOWN.test(trimmed)) {
+      flushTable();
+      inTeardown = true;
+      step = null;
+      continue;
+    }
+
     const h2 = line.match(H2);
     if (h2) {
       flushTable();
+      if (inTeardown) {
+        throw new Error(
+          `${file}:${lineNo}: a scenario cannot follow the \`___\` teardown ` +
+            "separator. Teardown belongs at the end of the spec, after the last " +
+            "scenario.",
+        );
+      }
       scenario = parseScenarioHeading(h2[1].trim(), lineNo);
       spec.scenarios.push(scenario);
       step = null;
@@ -83,9 +103,14 @@ export function parseMarkdown(content: string, file = "<memory>"): Spec {
     if (s) {
       flushTable();
       step = parseStepLine(s[1].trim(), lineNo);
-      // Steps before the first scenario are background; the rest belong to the
-      // current scenario.
-      (scenario ? scenario.steps : spec.background).push(step);
+      // Steps before the first scenario are background, steps after `___` are
+      // teardown, and the rest belong to the current scenario.
+      const target = inTeardown
+        ? spec.teardown
+        : scenario
+          ? scenario.steps
+          : spec.background;
+      target.push(step);
       continue;
     }
 

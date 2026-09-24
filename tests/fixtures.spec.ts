@@ -54,3 +54,10 @@ test("rejects a rest element, which hides the fixture names", () => {
   };
   expect(() => requestedFixtures(fn)).toThrow(/rest element/);
 });
+
+test("a callback that takes no parameter at all requests none", () => {
+  // Playwright allows `test("x", () => {})`; a step with no dependencies —
+  // one that only throws, say — should not have to write `({})`.
+  expect(requestedFixtures(() => {})).toEqual([]);
+  expect(requestedFixtures(async () => {})).toEqual([]);
+});

@@ -13,6 +13,9 @@ const MOCK_API_PORT = 3210;
 export default defineConfig({
   testDir: ".",
   testMatch: ["examples/**/*.spec.ts", "tests/**/*.spec.ts"],
+  // tests/fixtures/ holds small projects that tests run in a child process --
+  // one of them is meant to fail -- so they are not part of this run.
+  testIgnore: ["tests/fixtures/**"],
   fullyParallel: true,
   reporter: process.env.CI
     ? [["./src/reporter.ts"], ["html", { open: "never" }]]

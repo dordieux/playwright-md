@@ -28,6 +28,8 @@ interface PreparedScenario {
   fixtures: string[];
   /** Steps paired with their resolved definition, or the failure to report. */
   plan: PreparedStep[];
+  /** The spec's teardown steps, run after the plan whatever it did. */
+  teardown: PreparedStep[];
 }
 
 /**
@@ -73,10 +75,16 @@ export function createDefineSpecs(
 
         for (const scenario of spec.scenarios) {
           for (const row of dataRows(spec, scenario)) {
-            const steps = [...spec.background, ...scenario.steps].map((step) =>
-              row ? substituteStep(step, row) : step,
+            const substitute = (step: Step): Step =>
+              row ? substituteStep(step, row) : step;
+            const prepared = prepare(
+              scenario,
+              [...spec.background, ...scenario.steps].map(substitute),
+              spec.teardown.map(substitute),
+              registry,
+              concepts,
+              file,
             );
-            const prepared = prepare(scenario, steps, registry, concepts, file);
 
             const details: {
               tag?: string;
@@ -149,13 +157,24 @@ export function titleFor(title: string, row: Map<string, string> | null): string
 function prepare(
   scenario: Scenario,
   steps: Step[],
+  teardownSteps: Step[],
   registry: StepRegistry,
   concepts: ConceptRegistry,
   file: string,
 ): PreparedScenario {
+  // One set across both: teardown runs in the same test, so its fixtures are
+  // part of what this scenario needs.
   const fixtures = new Set<string>();
   const plan = resolveSteps(steps, file, registry, concepts, fixtures, []);
-  return { scenario, fixtures: [...fixtures].sort(), plan };
+  const teardown = resolveSteps(
+    teardownSteps,
+    file,
+    registry,
+    concepts,
+    fixtures,
+    [],
+  );
+  return { scenario, fixtures: [...fixtures].sort(), plan, teardown };
 }
 
 /**
@@ -287,11 +306,29 @@ function buildTestBody(
   // Everything a plan can report -- an unmatched step, an unresolved column, a
   // recursive concept -- is known before the run starts, so it is raised before
   // the first step instead of after the ones ahead of it have had their effect.
-  const failure = firstError(prepared.plan);
+  const failure = firstError(prepared.plan) ?? firstError(prepared.teardown);
 
   const runner = async (fixtures: Record<string, unknown>): Promise<void> => {
     if (failure) throw new Error(failure);
-    await runPlan(prepared.plan, fixtures);
+    if (prepared.teardown.length === 0) {
+      await runPlan(prepared.plan, fixtures);
+      return;
+    }
+    // Teardown runs whatever the scenario did, but must not hide why the
+    // scenario failed: its own failure is only raised when there is nothing to
+    // hide.
+    let scenarioError: unknown;
+    try {
+      await runPlan(prepared.plan, fixtures);
+    } catch (err) {
+      scenarioError = err;
+    }
+    try {
+      await runPlan(prepared.teardown, fixtures);
+    } catch (err) {
+      if (scenarioError === undefined) throw err;
+    }
+    if (scenarioError !== undefined) throw scenarioError;
   };
   return wrapperFor(prepared.fixtures)(runner) as (
     ...args: never[]

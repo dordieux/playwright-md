@@ -105,6 +105,18 @@ The other half of the rule is that `<column>` must resolve: a reference no table
 satisfies is an error, not literal text. Between them, neither a table nor a
 reference can be silently ignored.
 
+## Why teardown steps exist next to fixtures
+
+A fixture's code after `use()` already runs on failure, with scoping a spec
+cannot express, so teardown steps are not the mechanism a suite should reach for
+first. They exist because cleanup is sometimes part of what the spec *says* —
+"cancel every open order" belongs in the spec a trader reads, not only in the
+TypeScript. Anything a reader need not see belongs in a fixture.
+
+The failure rule follows from that: teardown runs whatever the scenario did, but
+its own failure is raised only when the scenario passed. Otherwise a broken
+cleanup would replace the reason the scenario failed with a consequence of it.
+
 ## Why there is no `world`
 
 Gauge-style suites keep per-scenario state in a mutable global that every step

@@ -21,8 +21,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   A `<column>` no table defines is an error rather than literal text.
 
+- **Teardown steps.** The steps after a `___` line at the end of a spec run
+  after every scenario, including one that failed. A teardown failure is
+  reported only when the scenario itself passed, so a broken cleanup cannot
+  replace the reason a scenario failed. A `##` heading after `___` is rejected
+  rather than quietly becoming teardown.
+
 ### Changed
 
+- A step callback that takes no parameter at all now requests no fixtures,
+  instead of being rejected for not destructuring. Playwright allows
+  `test("x", () => {})`; a step with no dependencies should not have to write
+  `({})`.
 - A scenario that cannot run — an unmatched step, an unresolved column, a
   recursive concept — now fails before its first step instead of when execution
   reaches the bad step, so the steps ahead of it no longer have their effect
