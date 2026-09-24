@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-24
+
+The five things Gauge had that playwright-md did not. The Markdown dialect is
+now close enough that an existing Gauge suite ports with little or no editing.
+
 ### Added
 
 - **Data-driven scenarios.** A table with no step above it makes a scenario run
