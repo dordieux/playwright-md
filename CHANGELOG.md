@@ -21,6 +21,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   A `<column>` no table defines is an error rather than literal text.
 
+- **Step hooks.** `beforeStep` and `afterStep` run around every step that
+  executes, including the steps inside a concept and the teardown steps. They
+  destructure fixtures like a step, plus `text`, `args` and `table`; an
+  after-hook also gets `error` — what the step threw, or null — and runs even
+  when the step failed, without replacing its error.
+
+  A hook's fixtures join the scenario's, so an untagged hook asking for `page`
+  would start a browser everywhere. `{ tags: [...] }` restricts a hook to
+  scenarios carrying all of them, and only those pull in its fixtures.
+
 - **`<file:…>` and `<table:…>` parameters.** `<file:path>` becomes a positional
   argument holding the file's contents; `<table:path.csv>` becomes the step's
   data table, the role an indented table already plays, so it adds no argument.

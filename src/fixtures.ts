@@ -21,9 +21,12 @@ const stepDataNames: ReadonlySet<string> = new Set(STEP_DATA_NAMES);
  * Because the request is per step, a scenario only pulls in what its own steps
  * use — a spec whose steps never mention `page` never starts a browser.
  */
-export function requestedFixtures(fn: (...args: never[]) => unknown): string[] {
-  const names = destructuredNames(fn);
-  return names.filter((name) => !stepDataNames.has(name));
+export function requestedFixtures(
+  fn: (...args: never[]) => unknown,
+  reserved: readonly string[] = STEP_DATA_NAMES,
+): string[] {
+  const supplied = reserved === STEP_DATA_NAMES ? stepDataNames : new Set(reserved);
+  return destructuredNames(fn).filter((name) => !supplied.has(name));
 }
 
 /**

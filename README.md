@@ -238,6 +238,36 @@ doubles as documentation.
 * the todo list has "1" items
 ```
 
+## Step hooks
+
+`beforeStep` and `afterStep` run around every step that executes — a concept's
+body, not the concept sentence that led to it, and teardown steps too. They
+destructure what they need, like a step, plus `text`, `args` and `table`
+describing the step they wrap.
+
+```ts
+export const { step, beforeStep, afterStep, defineSpecs } = createSpecs(test);
+
+beforeStep(({ text }) => console.log(`> ${text}`));
+
+afterStep(async ({ page, text, error }) => {
+  if (error) await page.screenshot({ path: `fail-${text}.png` });
+}, { tags: ["browser"] });
+```
+
+An after-hook runs even when its step failed — which is when a screenshot is
+worth most — and `error` is what the step threw, or null. Its own failure is
+reported only when the step passed, so it cannot replace the reason a step
+failed.
+
+**A hook's fixtures become the scenario's**, which is the one thing to watch: an
+untagged hook asking for `page` would start a browser for every scenario in the
+suite. `tags` restricts a hook to scenarios carrying all of them, and only those
+scenarios pull in its fixtures.
+
+Most suites will not need hooks at all — a fixture already wraps the whole
+scenario, with better scoping. Hooks are for what has to happen *between* steps.
+
 ## Reading arguments from files
 
 A long argument does not have to sit in the sentence.

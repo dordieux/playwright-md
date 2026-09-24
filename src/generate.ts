@@ -3,6 +3,7 @@ import path from "node:path";
 import type { TestType } from "@playwright/test";
 import { ConceptRegistry, resolveBodyStep } from "./concepts.js";
 import { partitionMarkdownFiles } from "./files.js";
+import type { Hook, HookRegistry } from "./hooks.js";
 import { referencedParams, substituteStep } from "./params.js";
 import { parseMarkdown } from "./parser.js";
 import type { StepRegistry } from "./registry.js";
@@ -31,6 +32,8 @@ interface PreparedScenario {
   plan: PreparedStep[];
   /** The spec's teardown steps, run after the plan whatever it did. */
   teardown: PreparedStep[];
+  /** The step hooks that apply to this scenario. */
+  hooks: { before: Hook[]; after: Hook[] };
 }
 
 /**
@@ -54,6 +57,7 @@ export function createDefineSpecs(
   test: TestType<Record<string, any>, Record<string, any>>,
   registry: StepRegistry,
   concepts: ConceptRegistry,
+  hooks: HookRegistry,
 ): (target: string | string[], opts?: DefineOptions) => void {
   return function defineSpecs(target, opts = {}) {
     const files = partitionMarkdownFiles(target);
@@ -84,6 +88,8 @@ export function createDefineSpecs(
               spec.teardown.map(substitute),
               registry,
               concepts,
+              hooks,
+              tagsOf(spec, scenario),
               file,
             );
 
@@ -96,16 +102,9 @@ export function createDefineSpecs(
               ],
             };
 
-            // Spec tags are inherited by every scenario, as in Gauge; the
-            // `-- tag` heading suffix is a tag too, and is recorded separately
-            // so `specInfo().tag` keeps meaning that one thing.
-            const tags = [
-              ...spec.tags,
-              ...scenario.tags,
-              ...(scenario.tag ? [scenario.tag] : []),
-            ];
-            if (tags.length > 0) {
-              details.tag = [...new Set(tags)].map((t) => `@${t}`);
+            const tags = tagsOf(spec, scenario);
+            if (tags.size > 0) {
+              details.tag = [...tags].map((t) => `@${t}`);
             }
             if (scenario.tag) {
               details.annotation.push({
@@ -164,6 +163,18 @@ export function dataRows(spec: Spec, scenario: Scenario): Array<Map<string, stri
   return out;
 }
 
+/**
+ * Every tag a scenario carries: the spec's, inherited as in Gauge, its own, and
+ * the `-- tag` heading suffix.
+ */
+function tagsOf(spec: Spec, scenario: Scenario): Set<string> {
+  return new Set([
+    ...spec.tags,
+    ...scenario.tags,
+    ...(scenario.tag ? [scenario.tag] : []),
+  ]);
+}
+
 /** A scenario's title for one row, kept distinct so reports stay readable. */
 export function titleFor(title: string, row: Map<string, string> | null): string {
   if (!row || row.size === 0) return title;
@@ -178,10 +189,12 @@ function prepare(
   teardownSteps: Step[],
   registry: StepRegistry,
   concepts: ConceptRegistry,
+  hookRegistry: HookRegistry,
+  tags: Set<string>,
   file: string,
 ): PreparedScenario {
-  // One set across both: teardown runs in the same test, so its fixtures are
-  // part of what this scenario needs.
+  // One set across all of them: teardown and hooks run in the same test, so
+  // their fixtures are part of what this scenario needs.
   const fixtures = new Set<string>();
   const plan = resolveSteps(steps, file, registry, concepts, fixtures, []);
   const teardown = resolveSteps(
@@ -192,7 +205,16 @@ function prepare(
     fixtures,
     [],
   );
-  return { scenario, fixtures: [...fixtures].sort(), plan, teardown };
+
+  const hooks = {
+    before: hookRegistry.select("before", tags),
+    after: hookRegistry.select("after", tags),
+  };
+  for (const hook of [...hooks.before, ...hooks.after]) {
+    for (const name of hook.fixtures) fixtures.add(name);
+  }
+
+  return { scenario, fixtures: [...fixtures].sort(), plan, teardown, hooks };
 }
 
 /**
@@ -339,7 +361,7 @@ function buildTestBody(
   const runner = async (fixtures: Record<string, unknown>): Promise<void> => {
     if (failure) throw new Error(failure);
     if (prepared.teardown.length === 0) {
-      await runPlan(prepared.plan, fixtures);
+      await runPlan(prepared.plan, fixtures, prepared.hooks);
       return;
     }
     // Teardown runs whatever the scenario did, but must not hide why the
@@ -347,12 +369,12 @@ function buildTestBody(
     // hide.
     let scenarioError: unknown;
     try {
-      await runPlan(prepared.plan, fixtures);
+      await runPlan(prepared.plan, fixtures, prepared.hooks);
     } catch (err) {
       scenarioError = err;
     }
     try {
-      await runPlan(prepared.teardown, fixtures);
+      await runPlan(prepared.teardown, fixtures, prepared.hooks);
     } catch (err) {
       if (scenarioError === undefined) throw err;
     }
@@ -403,6 +425,7 @@ export function setStepReporter(
 async function runPlan(
   plan: PreparedStep[],
   fixtures: Record<string, unknown>,
+  hooks: { before: Hook[]; after: Hook[] },
 ): Promise<void> {
   for (const entry of plan) {
     if (entry.kind === "error") throw new Error(entry.message);
@@ -415,21 +438,53 @@ async function runPlan(
     if (entry.kind === "concept") {
       await reportStep(
         entry.step.text,
-        () => runPlan(entry.children, fixtures),
+        () => runPlan(entry.children, fixtures, hooks),
         location,
       );
       continue;
     }
 
+    const data = {
+      args: entry.args,
+      table: entry.step.table,
+      text: entry.step.text,
+    };
+
     await reportStep(
       entry.step.text,
       async () => {
-        await (entry.run as (ctx: unknown) => unknown)({
-          ...fixtures,
-          args: entry.args,
-          table: entry.step.table,
-          text: entry.step.text,
-        });
+        // Hooks wrap the step that actually runs, not the concept sentence that
+        // led to it — which is what Gauge does too.
+        for (const hook of hooks.before) {
+          await (hook.fn as (ctx: unknown) => unknown)({
+            ...fixtures,
+            ...data,
+            error: null,
+          });
+        }
+
+        let stepError: unknown;
+        try {
+          await (entry.run as (ctx: unknown) => unknown)({ ...fixtures, ...data });
+        } catch (err) {
+          stepError = err;
+        }
+
+        // After-hooks run even when the step failed -- that is when a
+        // screenshot is worth most -- but must not replace its error.
+        try {
+          for (const hook of hooks.after) {
+            await (hook.fn as (ctx: unknown) => unknown)({
+              ...fixtures,
+              ...data,
+              error: stepError ?? null,
+            });
+          }
+        } catch (err) {
+          if (stepError === undefined) stepError = err;
+        }
+
+        if (stepError !== undefined) throw stepError;
       },
       location,
     );

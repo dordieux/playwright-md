@@ -105,6 +105,20 @@ The other half of the rule is that `<column>` must resolve: a reference no table
 satisfies is an error, not literal text. Between them, neither a table nor a
 reference can be silently ignored.
 
+## Why step hooks are tag-restricted
+
+A hook's fixtures have to join the scenario's union — it runs in the same test,
+so whatever it destructures must exist. Left there, one `afterStep` asking for
+`page` would start a browser for every scenario in the suite, quietly undoing
+the property that a logic-only spec is browser-free.
+
+`tags` is the answer, and it is Gauge's too: a hook applies only to scenarios
+carrying all of its tags, so only those scenarios pull in its fixtures. The rule
+stays "only what is used", with the hook's own scope as part of what is used.
+
+Hooks wrap the steps that actually execute, not the concept sentences that led
+to them — which is what Gauge does, verified against it.
+
 ## Why teardown steps exist next to fixtures
 
 A fixture's code after `use()` already runs on failure, with scoping a spec
@@ -147,6 +161,7 @@ this path rather than replacing it.
 | `files` | Which `.md` files a target holds, and which of them are concept files. |
 | `parser` | Markdown → `Spec` (scenarios, background, steps, tables, line numbers). Owns the dialect. |
 | `special-params` | `<file:…>` and `<table:…>`: reading them from disk, and parsing CSV. |
+| `hooks` | Step hooks: their fixtures and the tags that restrict them. One registry per `createSpecs`. |
 | `params` | `<name>` references: which a step makes, and substituting values into one. Shared by concepts and data tables. |
 | `concepts` | Markdown → concepts; binding by template; argument substitution into a body. One registry per `createSpecs`. |
 | `registry` | Step definitions and matching; template `{}` or RegExp; "did you mean" suggestions. One instance per `createSpecs`. |
